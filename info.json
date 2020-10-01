@@ -4,8 +4,8 @@
     "title": "BeltRouter",
     "author": "Qiyi Shan",
     "contact": "adls371@outlook.com",
-    "homepage": "https://github.com/Seancheey/BeltRouter",
+    "homepage": "https://github.com/Seancheey/FactorioBeltRouter",
     "factorio_version": "1.0",
     "dependencies": ["base", "MiscLib"],
-    "description": "This mod allows you to route belts and pipes automatically: \n  Put the starting belt and ending belt on ground first, \n  then select the starting belt with ctrl+shift+s and \n  select a ending belt with ctrl+shift+e.\n Boom, belt ghosts are created."
+    "description": "This mod allows you to route belts and pipes automatically: \n  Put the starting belt and ending belt on ground first, \n  then select the starting belt with shift-right-click and \n  select a ending belt with shift-left-click.\n Boom, belt ghosts are created."
 }

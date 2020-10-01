@@ -1,0 +1,51 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.7.0
+Date: 2020.09.20
+  Feature:
+    - Add support to choose blueprint input direction and output direction
+  Bugfixes:
+    - Fix bug that makes full fluid crafting recipe crashes game
+    - Fix bug that calculates width of a crafting unit wrongly and makes some repeating units strangely
+
+---------------------------------------------------------------------------------------------------
+Version: 0.6.0
+Date: 2020.09.18
+  Feature:
+    - UI improvement for choosing crafting unit
+  Bugfixes:
+    - Fix bug that makes choosing blueprint whole factory raise error
+    - Fix bug that makes double transport belt blueprint break
+    - Fix bug that makes belt direction option not working after choosing recipe
+
+---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2020.09.17
+  Feature:
+    - Now player can choose the repeat number of the crafting unit. The max transportation cap of belt is also calculated
+
+---------------------------------------------------------------------------------------------------
+Version: 0.4.0
+Date: 2020.09.15
+  Bugfixes:
+    - Fixed fluid box connection ordering
+  Features:
+    - Added speed calculation
+
+---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2020.09.14
+  Features:
+    - Added support for choosing belt direction
+
+---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: 2020.09.13
+  Features:
+    - Now Blueprinter can use the right type and right amount of inserters for a crafting unit
+
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2020.09.12
+  Features:
+    - Supports selecting crafting unit and get blueprint
+    - Supports selecting preference for crafting machine and transport belt
