@@ -10,6 +10,7 @@ local MinHeap = require("__MiscLib__/minheap")
 local Vector2D = require("__MiscLib__/vector2d")
 local assertNotNull = require("__MiscLib__/assert_not_null")
 local logging = require("__MiscLib__/logging")
+--- @type PrototypeInfo
 local PrototypeInfo = require("prototype_info")
 
 --- @class TransportChain
@@ -108,9 +109,10 @@ local function debug_visited_position(connector, visitedPositions)
 end
 
 --- @class TransportLineConnector
---- @type TransportLineConnector
 --- @field canPlaceEntityFunc fun(position: Vector2D): boolean
 --- @field placeEntityFunc fun(entity: LuaEntityPrototype)
+
+--- @type TransportLineConnector
 local TransportLineConnector = {}
 
 TransportLineConnector.__index = TransportLineConnector
@@ -163,18 +165,28 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
         local transportChain = priorityQueue:pop().val
-        if transportChain.entity.position.x == startingEntityTargetPos.x and transportChain.entity.position.y == startingEntityTargetPos.y then
-            placeAllEntities(transportChain, self.placeEntityFunc)
-            logging.log("Algorithm spent " .. tostring(tryNum) .. " number of tries to find solution")
-            return
+
+        local continue = false
+        if transportChain.entity.position == startingEntityTargetPos then
+            -- make sure direction diff is no more than 90 deg for belts or 0 deg underground belt
+            local isUnderground = PrototypeInfo.is_underground_transport(transportChain.entity.name)
+            if isUnderground and transportChain.entity.direction == startingEntity.direction or not isUnderground and (transportChain.entity.direction - startingEntity.direction) % 8 <= 2 then
+                placeAllEntities(transportChain, self.placeEntityFunc)
+                logging.log("Algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
+                return
+            else
+                continue = true
+            end
         end
-        for entity, travelDistance in pairs(self:surroundingCandidates(transportChain, visitedPositions, game.entity_prototypes[startingEntity.name], allowUnderground)) do
-            assert(entity and travelDistance)
-            local newChain = TransportChain.new(entity, transportChain, travelDistance)
-            priorityQueue:push(self:estimateDistance(entity.position, startingEntityTargetPos, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
-            visitedPositions:put(transportChain.entity.position, newChain.cumulativeDistance)
+        if not continue then
+            for entity, travelDistance in pairs(self:surroundingCandidates(transportChain, visitedPositions, game.entity_prototypes[startingEntity.name], allowUnderground)) do
+                assert(entity and travelDistance)
+                local newChain = TransportChain.new(entity, transportChain, travelDistance)
+                priorityQueue:push(self:estimateDistance(entity, startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
+                visitedPositions:put(transportChain.entity.position, newChain.cumulativeDistance)
+            end
+            tryNum = tryNum + 1
         end
-        tryNum = tryNum + 1
     end
     if priorityQueue:isEmpty() then
         logging.log("finding terminated early since there is no more places to find")
@@ -213,12 +225,14 @@ function TransportLineConnector:surroundingCandidates(transportChain, visitedPos
         -- test if we can place it underground
         if allowUnderground then
             for underground_distance = underground_prototype.max_underground_distance + 1, 2, -1 do
-                local newPos = directionVector:scale(underground_distance) + Vector2D.fromPosition(transportChain.entity.position)
-                if self:canPlace(newPos, transportChain.cumulativeDistance + underground_distance, visitedPositions, transportChain.entity.position) then
+                local inputUndergroundPos = directionVector:scale(underground_distance) + Vector2D.fromPosition(transportChain.entity.position)
+                local outputUndergroundPos = directionVector + Vector2D.fromPosition(transportChain.entity.position)
+                if self:canPlace(inputUndergroundPos, transportChain.cumulativeDistance + underground_distance, visitedPositions, transportChain.entity.position) and
+                        self.canPlaceEntityFunc(outputUndergroundPos) then
                     candidates[{
                         name = underground_prototype.name,
                         direction = directionVector:reverse():toDirection(),
-                        position = newPos
+                        position = inputUndergroundPos
                     }] = underground_distance
                 end
             end
@@ -251,15 +265,19 @@ function TransportLineConnector:canPlace(position, cumulativeDistance, visitedPo
 end
 
 --- A* algorithm's heuristics cost
---- @param entity1 LuaEntity
---- @param entity2 LuaEntity
-function TransportLineConnector:estimateDistance(position1, position2, rewardHorizontalFirst, rewardVerticalFirst)
-    local dx = math.abs(position1.x - position2.x)
-    local dy = math.abs(position1.y - position2.y)
-    -- break A* cost tie by rewarding going to same y-level, but reward is no more than 1
-    local reward = (rewardHorizontalFirst and (1 / (dy + 2)) or 0) + (rewardVerticalFirst and (1 / (dx + 2)) or 0)
+--- @param testEntity LuaEntity
+--- @param targetPos Vector2D
+--- @param rewardDirection defines.direction
+function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDirection, rewardHorizontalFirst, rewardVerticalFirst)
+    local dx = math.abs(testEntity.position.x - targetPos.x)
+    local dy = math.abs(testEntity.position.y - targetPos.y)
+    -- break A* cost tie by rewarding going to same x/y-level, but reward is no more than 1
+    local reward = (rewardHorizontalFirst and (1 / (dy + 1)) or 0) + (rewardVerticalFirst and (1 / (dx + 1)) or 0)
+    -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
+    -- We punish reversed direction, and reward same direction
+    local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     logging.log("reward = " .. tostring(reward))
-    return (dx + dy - reward) * 1.5
+    return (dx + dy - reward - directionReward) * 1.5
 end
 
 return TransportLineConnector
