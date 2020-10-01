@@ -4,6 +4,8 @@
 --- DateTime: 9/30/20 1:11 AM
 ---
 
+local releaseMode = false
+
 --- @alias player_index number
 
 --- @type ArrayList
@@ -11,6 +13,16 @@ local ArrayList = require("__MiscLib__/array_list")
 local TransportLineConnector = require("transport_line_connector")
 --- @type Copier
 local Copy = require("__MiscLib__/copy")
+--- @type Logger
+local logging = require("__MiscLib__/logging")
+
+local loggingCategories = {
+    reward = false
+}
+
+for category, enable in pairs(loggingCategories) do
+    logging.addCategory(category, releaseMode and false or enable)
+end
 
 --- @type table<player_index, ArrayList|LuaEntity[]>
 local playerSelectedStartingPositions = {}

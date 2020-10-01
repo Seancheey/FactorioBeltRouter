@@ -160,7 +160,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     end
     -- A* algorithm starts from endingEntity so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingEntity, nil))
-    local maxTryNum = 1000000
+    local maxTryNum = 100000
     local tryNum = 0
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
@@ -185,8 +185,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 priorityQueue:push(self:estimateDistance(entity, startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
                 visitedPositions:put(transportChain.entity.position, newChain.cumulativeDistance)
             end
-            tryNum = tryNum + 1
         end
+        tryNum = tryNum + 1
     end
     if priorityQueue:isEmpty() then
         logging.log("finding terminated early since there is no more places to find")
@@ -224,7 +224,7 @@ function TransportLineConnector:surroundingCandidates(transportChain, visitedPos
         local directionVector = Vector2D.fromDirection(direction)
         -- test if we can place it underground
         if allowUnderground then
-            for underground_distance = underground_prototype.max_underground_distance + 1, 2, -1 do
+            for underground_distance = underground_prototype.max_underground_distance + 1, 3, -1 do
                 local inputUndergroundPos = directionVector:scale(underground_distance) + Vector2D.fromPosition(transportChain.entity.position)
                 local outputUndergroundPos = directionVector + Vector2D.fromPosition(transportChain.entity.position)
                 if self:canPlace(inputUndergroundPos, transportChain.cumulativeDistance + underground_distance, visitedPositions, transportChain.entity.position) and
@@ -276,7 +276,7 @@ function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDi
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
     local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
-    logging.log("reward = " .. tostring(reward))
+    logging.log("reward = " .. tostring(reward), "reward")
     return (dx + dy - reward - directionReward) * 1.5
 end
 
