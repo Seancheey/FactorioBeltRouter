@@ -1,5 +1,8 @@
 local logging = require("__MiscLib__/logging")
 
+--- @class PrototypeInfo
+
+--- @type PrototypeInfo
 local PrototypeInfo = {}
 
 local corresponding_underground_transport_line_table = {
