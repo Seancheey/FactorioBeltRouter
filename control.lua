@@ -73,7 +73,7 @@ local function setEndingTransportLine(event)
     local function place(entity)
         entity = Copy.deep_copy(entity)
         entity.force = player.force
-        if entity.inner_name ~= "entity-ghost" then
+        if entity.name ~= "entity-ghost" and entity.name ~= "speech-bubble" then
             entity.inner_name = entity.name
             entity.name = "entity-ghost"
         end

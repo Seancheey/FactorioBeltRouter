@@ -46,6 +46,28 @@ function TransportChain:toEntityList()
     return list
 end
 
+--- @param transportChain TransportChain
+--- @param placeFunc fun(entity: LuaEntityPrototype)
+function TransportChain:placeAllEntities(placeFunc)
+    local transportChain = self
+    while transportChain ~= nil do
+        if game.entity_prototypes[transportChain.entity.name].max_underground_distance then
+            transportChain.entity.type = "input"
+            placeFunc(transportChain.entity)
+            -- if the entity is underground line, also place its complement
+            placeFunc {
+                name = transportChain.entity.name,
+                position = Vector2D.fromDirection(transportChain.entity.direction or defines.direction.north):scale(transportChain.entityDistance - 1) + Vector2D.fromPosition(transportChain.entity.position),
+                direction = transportChain.entity.direction,
+                type = "output"
+            }
+        else
+            placeFunc(transportChain.entity)
+        end
+        transportChain = transportChain.prevChain
+    end
+end
+
 --- @class VectorDict
 --- @type VectorDict
 local VectorDict = {}
@@ -76,36 +98,6 @@ function VectorDict:forEach(f)
             f(Vector2D.new(x, y), val)
         end
     end
-end
-
---- @param transportChain TransportChain
---- @param placeFunc fun(entity: LuaEntityPrototype)
-local function placeAllEntities(transportChain, placeFunc)
-    while transportChain ~= nil do
-        if game.entity_prototypes[transportChain.entity.name].max_underground_distance then
-            transportChain.entity.type = "input"
-            placeFunc(transportChain.entity)
-            -- if the entity is underground line, also place its complement
-            placeFunc {
-                name = transportChain.entity.name,
-                position = Vector2D.fromDirection(transportChain.entity.direction or defines.direction.north):scale(transportChain.entityDistance - 1) + Vector2D.fromPosition(transportChain.entity.position),
-                direction = transportChain.entity.direction,
-                type = "output"
-            }
-        else
-            placeFunc(transportChain.entity)
-        end
-        transportChain = transportChain.prevChain
-    end
-end
-
-local function debug_visited_position(connector, visitedPositions)
-    visitedPositions:forEach(
-            function(vector)
-                if connector.canPlaceEntityFunc(vector) then
-                    connector.placeEntityFunc({ name = "small-lamp", position = vector })
-                end
-            end)
 end
 
 --- @class TransportLineConnector
@@ -171,7 +163,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             -- make sure direction diff is no more than 90 deg for belts or 0 deg underground belt
             local isUnderground = PrototypeInfo.is_underground_transport(transportChain.entity.name)
             if isUnderground and transportChain.entity.direction == startingEntity.direction or not isUnderground and (transportChain.entity.direction - startingEntity.direction) % 8 <= 2 then
-                placeAllEntities(transportChain, self.placeEntityFunc)
+                transportChain:placeAllEntities(self.placeEntityFunc)
                 logging.log("Algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
                 return
             else
@@ -192,6 +184,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         logging.log("finding terminated early since there is no more places to find")
     else
         logging.log("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
+        self:debug_visited_position(visitedPositions)
     end
     return
 end
@@ -278,6 +271,15 @@ function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDi
     local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     logging.log("reward = " .. tostring(reward), "reward")
     return (dx + dy - reward - directionReward) * 1.5
+end
+
+function TransportLineConnector:debug_visited_position( visitedPositions)
+    visitedPositions:forEach(
+            function(vector, val)
+                if connector.canPlaceEntityFunc(vector) then
+                    connector.placeEntityFunc({ name = "speech-bubble", position = vector, text = tostring(val) })
+                end
+            end)
 end
 
 return TransportLineConnector
