@@ -9,6 +9,8 @@
 --- @type ArrayList
 local ArrayList = require("__MiscLib__/array_list")
 local TransportLineConnector = require("transport_line_connector")
+--- @type Copier
+local Copy = require("__MiscLib__/copy")
 
 --- @type table<player_index, ArrayList|LuaEntity[]>
 local playerSelectedStartingPositions = {}
@@ -57,7 +59,13 @@ local function setEndingTransportLine(event)
         return surface.can_place_entity { name = "transport-belt", position = position }
     end
     local function place(entity)
+        entity = Copy.deep_copy(entity)
         entity.force = player.force
+        if entity.inner_name ~= "entity-ghost" then
+            entity.inner_name = entity.name
+            entity.name = "entity-ghost"
+        end
+        entity.player = player
         surface.create_entity(entity)
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place)
