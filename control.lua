@@ -10,12 +10,14 @@ local releaseMode = false
 
 --- @type ArrayList
 local ArrayList = require("__MiscLib__/array_list")
-local TransportLineConnector = require("transport_line_connector")
 --- @type Copier
 local Copy = require("__MiscLib__/copy")
 --- @type Logger
 local logging = require("__MiscLib__/logging")
+--- @type TransportLineConnector
+local TransportLineConnector = require("transport_line_connector")
 
+--- @type table<string, boolean>
 local loggingCategories = {
     reward = false
 }
