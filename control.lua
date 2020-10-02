@@ -25,6 +25,11 @@ local loggingCategories = {
 for category, enable in pairs(loggingCategories) do
     logging.addCategory(category, releaseMode and false or enable)
 end
+if releaseMode then
+    logging.disableCategory(logging.D)
+    logging.disableCategory(logging.I)
+    logging.disableCategory(logging.V)
+end
 
 --- @type table<player_index, ArrayList|LuaEntity[]>
 local playerSelectedStartingPositions = {}
@@ -68,6 +73,7 @@ local function setEndingTransportLine(event, config)
         player.print("You haven't specified any starting belt yet. Place a belt as starting transport line, and then shift + right click on it to mark it as starting belt.")
         return
     end
+    logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
     local function canPlace(position)
         return surface.can_place_entity { name = "transport-belt", position = position }
@@ -91,7 +97,6 @@ end
 
 local function buildTransportLineWithConfig(config)
     return function(event)
-        logging.log("build line with config: " .. serpent.line(config))
         setEndingTransportLine(event, config)
     end
 end
