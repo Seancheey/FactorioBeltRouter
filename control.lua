@@ -54,7 +54,7 @@ local function setStartingTransportLine(event)
     end
 end
 
-local function setEndingTransportLine(event)
+local function setEndingTransportLine(event, config)
     local player = game.players[event.player_index]
     local selectedEntity = player.selected
     if not selectedEntity then
@@ -86,8 +86,16 @@ local function setEndingTransportLine(event)
         return surface.find_entities({ { position.x, position.y }, { position.x, position.y } })[1]
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity)
-    transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, { allowUnderground = true })
+    transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, config)
 end
 
-script.on_event("shiftRightClickCustomInput", setStartingTransportLine)
-script.on_event("shiftLeftClickCustomInput", setEndingTransportLine)
+local function buildTransportLineWithConfig(config)
+    return function(event)
+        logging.log("build line with config: " .. serpent.line(config))
+        setEndingTransportLine(event, config)
+    end
+end
+
+script.on_event("select-line-starting-point", setStartingTransportLine)
+script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true })
+script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false })

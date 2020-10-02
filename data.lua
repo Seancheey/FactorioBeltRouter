@@ -6,12 +6,17 @@
 data:extend {
     {
         type = "custom-input",
-        name = "shiftLeftClickCustomInput",
+        name = "build-transport-line",
         key_sequence = "SHIFT + mouse-button-1"
     },
     {
         type = "custom-input",
-        name = "shiftRightClickCustomInput",
-        key_sequence = "SHIFT + mouse-button-2"
+        name = "build-transport-line-no-underground",
+        key_sequence = "SHIFT + CTRL + mouse-button-1 "
     },
+    {
+        type = "custom-input",
+        name = "select-line-starting-point",
+        key_sequence = "SHIFT + mouse-button-2"
+    }
 }
