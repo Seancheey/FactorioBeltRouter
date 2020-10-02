@@ -167,22 +167,28 @@ function MinDistanceDict:forEach(f)
         end
     end
 end
+
 --- @class TransportLineConnector
 --- @field canPlaceEntityFunc fun(position: Vector2D): boolean
 --- @field placeEntityFunc fun(entity: LuaEntityPrototype)
+--- @field getEntityFunc fun(position: Vector2D): LuaEntity
 
+--- An "Abstract" transport line connector
 --- @type TransportLineConnector
 local TransportLineConnector = {}
 
 TransportLineConnector.__index = TransportLineConnector
 
 --- @param canPlaceEntityFunc fun(position: Vector2D): boolean
+--- @param placeEntityFunc fun(entity: LuaEntityPrototype)
+--- @param getEntityFunc fun(position: Vector2D): LuaEntity
 --- @return TransportLineConnector
-function TransportLineConnector.new(canPlaceEntityFunc, placeEntityFunc)
-    assert(canPlaceEntityFunc and placeEntityFunc)
+function TransportLineConnector.new(canPlaceEntityFunc, placeEntityFunc, getEntityFunc)
+    assertNotNull(canPlaceEntityFunc, placeEntityFunc, getEntityFunc)
     return setmetatable(
             { canPlaceEntityFunc = canPlaceEntityFunc,
-              placeEntityFunc = placeEntityFunc
+              placeEntityFunc = placeEntityFunc,
+              getEntityFunc = getEntityFunc
             }, TransportLineConnector)
 end
 
@@ -307,24 +313,38 @@ function TransportLineConnector:surroundingCandidates(transportChain, visitedPos
     end
     local legalCandidates = {}
     for candidateEntity, travelDistance in pairs(candidates) do
-        if self:canPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, visitedPositions) then
+        if self:testCanPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, visitedPositions, travelDistance) then
             legalCandidates[candidateEntity] = travelDistance
         end
     end
     return legalCandidates
 end
 
---- @param visitedPositions MinDistanceDict
-function TransportLineConnector:canPlace(entity, cumulativeDistance, visitedPositions)
-    assertNotNull(self, entity, cumulativeDistance, visitedPositions)
+--- @param entity LuaEntity
+--- @param cumulativeDistance number
+--- @param minDistanceDict MinDistanceDict
+function TransportLineConnector:testCanPlace(entity, cumulativeDistance, minDistanceDict, undergroundDistance)
+    assertNotNull(self, entity, cumulativeDistance, minDistanceDict)
     if not self.canPlaceEntityFunc(entity.position) then
         return false
     end
+    if PrototypeInfo.is_underground_transport(entity.name) then
+        -- make sure there is no interfering underground belts whose direction is parallel to our underground belt pair
+        for testDiff = 1, undergroundDistance - 1, 1 do
+            local testPos = entity.position + Vector2D.fromDirection(entity.direction):scale(testDiff)
+            local entityInMiddle = self.getEntityFunc(testPos)
+            if entityInMiddle and ((entity.direction or defines.direction.north) - entity.direction) % 4 == 0 and entityInMiddle.name == entity.name then
+                return false
+            end
+        end
+    end
+
+    -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
     local distanceSmallerThanAny = false
     for _, sourceEntity in ipairs(DirectionHelper.legalSourcesOf(entity)) do
-        local curMinDistance = visitedPositions:get(sourceEntity.position, sourceEntity.direction)
+        local curMinDistance = minDistanceDict:get(sourceEntity.position, sourceEntity.direction)
         if curMinDistance == nil or curMinDistance > cumulativeDistance then
-            visitedPositions:put(sourceEntity.position, sourceEntity.direction, cumulativeDistance)
+            minDistanceDict:put(sourceEntity.position, sourceEntity.direction, cumulativeDistance)
             distanceSmallerThanAny = true
         end
     end
@@ -339,12 +359,12 @@ function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDi
     local dx = math.abs(testEntity.position.x - targetPos.x)
     local dy = math.abs(testEntity.position.y - targetPos.y)
     -- break A* cost tie by rewarding going to same x/y-level, but reward is no more than 1
-    local reward = (rewardHorizontalFirst and (1 / (dy + 1)) or 0) + (rewardVerticalFirst and (1 / (dx + 1)) or 0)
+    local positionReward = (rewardHorizontalFirst and (1 / (dy + 1)) or 0) + (rewardVerticalFirst and (1 / (dx + 1)) or 0)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
     local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
-    logging.log("reward = " .. tostring(reward), "reward")
-    return (dx + dy - reward - directionReward) * 1.5
+    logging.log("reward = " .. tostring(positionReward), "reward")
+    return (dx + dy - positionReward - directionReward) * 1.5
 end
 
 --- @param visitedPositions MinDistanceDict

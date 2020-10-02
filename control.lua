@@ -82,7 +82,10 @@ local function setEndingTransportLine(event)
         entity.player = player
         surface.create_entity(entity)
     end
-    local transportLineConstructor = TransportLineConnector.new(canPlace, place)
+    local function getEntity(position)
+        return surface.find_entities({ { position.x, position.y }, { position.x, position.y } })[1]
+    end
+    local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity)
     transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, { allowUnderground = true })
 end
 
