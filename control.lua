@@ -4,7 +4,6 @@
 --- DateTime: 9/30/20 1:11 AM
 ---
 
-local releaseMode = false
 
 --- @alias player_index number
 
@@ -16,6 +15,7 @@ local Copy = require("__MiscLib__/copy")
 local logging = require("__MiscLib__/logging")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
+local releaseMode = require("release")
 
 --- @type table<string, boolean>
 local loggingCategories = {

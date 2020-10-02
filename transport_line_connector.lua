@@ -17,6 +17,7 @@ local MinHeap = require("__MiscLib__/minheap")
 local Vector2D = require("__MiscLib__/vector2d")
 --- @type PrototypeInfo
 local PrototypeInfo = require("prototype_info")
+local release_mode = require("release")
 
 local DirectionHelper = {}
 
@@ -321,7 +322,7 @@ function TransportLineConnector:canPlace(entity, cumulativeDistance, visitedPosi
     end
     local distanceSmallerThanAny = false
     for _, sourceEntity in ipairs(DirectionHelper.legalSourcesOf(entity)) do
-        local curMinDistance = visitedPositions:get(sourceEntity.position,sourceEntity.direction)
+        local curMinDistance = visitedPositions:get(sourceEntity.position, sourceEntity.direction)
         if curMinDistance == nil or curMinDistance > cumulativeDistance then
             visitedPositions:put(sourceEntity.position, sourceEntity.direction, cumulativeDistance)
             distanceSmallerThanAny = true
@@ -348,12 +349,14 @@ end
 
 --- @param visitedPositions MinDistanceDict
 function TransportLineConnector:debug_visited_position(visitedPositions)
-    visitedPositions:forEach(
-            function(vector, val)
-                if self.canPlaceEntityFunc(vector) then
-                    self.placeEntityFunc({ name = "small-lamp", position = vector })
-                end
-            end)
+    if not release_mode then
+        visitedPositions:forEach(
+                function(vector, _, _)
+                    if self.canPlaceEntityFunc(vector) then
+                        self.placeEntityFunc({ name = "small-lamp", position = vector })
+                    end
+                end)
+    end
 end
 
 return TransportLineConnector
