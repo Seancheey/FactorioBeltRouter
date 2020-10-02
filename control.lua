@@ -92,7 +92,10 @@ local function setEndingTransportLine(event, config)
         return surface.find_entities({ { position.x, position.y }, { position.x, position.y } })[1]
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity)
-    transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, config)
+    local errorMessage = transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, config)
+    if errorMessage then
+        player.print(errorMessage)
+    end
 end
 
 local function buildTransportLineWithConfig(config)

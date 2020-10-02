@@ -201,6 +201,12 @@ end
 --- @param additionalConfig LineConnectConfig optional
 function TransportLineConnector:buildTransportLine(startingEntity, endingEntity, additionalConfig)
     assertNotNull(self, startingEntity, endingEntity)
+    if not startingEntity.valid then
+        return "starting line entity is no longer valid"
+    end
+    if not endingEntity.valid then
+        return "ending line entity is no longer valid"
+    end
     startingEntity = {
         name = startingEntity.name,
         position = Vector2D.fromPosition(startingEntity.position),
@@ -237,7 +243,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             local isUnderground = PrototypeInfo.is_underground_transport(transportChain.entity.name)
             if isUnderground and transportChain.entity.direction == startingEntity.direction or not isUnderground and (transportChain.entity.direction - startingEntity.direction) % 8 <= 2 then
                 transportChain:placeAllEntities(self.placeEntityFunc)
-                logging.log("Algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
+                logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
                 return
             else
                 continue = true
@@ -253,11 +259,11 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         tryNum = tryNum + 1
     end
     if priorityQueue:isEmpty() then
-        logging.log("finding terminated early since there is no more places to find")
         self:debug_visited_position(minDistanceDict)
+        return "Path finding terminated, there is probably no path between the two entity"
     else
-        logging.log("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
         self:debug_visited_position(minDistanceDict)
+        return "Failed to connect transport line within " .. tostring(maxTryNum) .. " trials"
     end
     return
 end
