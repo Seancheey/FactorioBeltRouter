@@ -237,7 +237,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     end
     -- A* algorithm starts from endingEntity so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingEntity, nil))
-    local maxTryNum = 1000
+    local maxTryNum = 5000
     local tryNum = 0
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
