@@ -1,8 +1,9 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.2.0
-Date: 2020.10.03
-  Features:
-    - Automatically put path finding process to a separate process to prevent blocking game play
+Date: 2020.10.04
+  Optimisations:
+    - Allow selecting splitter/underground belts/underground pipes as starting/ending line
+    - Reduce path finding max trial to 5000, so that game will pause at most 5 sec
 
 ---------------------------------------------------------------------------------------------------
 Version: 0.1.0
