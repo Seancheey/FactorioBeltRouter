@@ -78,7 +78,7 @@ function TransportLineType.getType(entity_name)
     end
     --- @type TransportLineType
     local type = {}
-    if prototype.fluid_capacity ~= nil then
+    if prototype.fluid_capacity > 0 then
         type.lineType = TransportLineType.fluidLine
     elseif prototype.belt_speed ~= nil then
         type.lineType = TransportLineType.itemLine

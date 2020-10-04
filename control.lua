@@ -58,7 +58,7 @@ local function setStartingTransportLine(event)
     end
     local transportLineType = TransportLineType.getType(selectedEntity.prototype.name)
     if transportLineType then
-        if transportLineType.beltType == transportLineType.splitterBelt then
+        if transportLineType.beltType == TransportLineType.splitterBelt then
             -- since splitter belt has 2-block width, we need to figure out which part is routable and smartly choose the routable belt
             local splitterPositions = ArrayList.new { Vector2D.new(0, 0), Vector2D.new(0, 0) }
             splitterPositions[1].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
@@ -70,6 +70,7 @@ local function setStartingTransportLine(event)
                 return player.surface.find_entities({{ targetPos.x, targetPos.y }, { targetPos.x, targetPos.y }})[1] == nil
             end)
             local chosenPosition = #routablePositions > 0 and routablePositions[1] or splitterPositions[1]
+            logging.log("splitter chosen position = " .. serpent.line(chosenPosition))
             selectedEntity = {
                 name = selectedEntity.name,
                 direction = selectedEntity.direction,
