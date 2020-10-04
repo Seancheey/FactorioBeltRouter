@@ -4,6 +4,6 @@
 --- DateTime: 10/1/20 10:48 PM
 ---
 
-local release_mode = false
+local release_mode = true
 
 return release_mode
