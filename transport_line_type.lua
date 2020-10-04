@@ -23,6 +23,49 @@ TransportLineType.undergroundBelt = "underground"
 TransportLineType.onGround = "onGround"
 TransportLineType.underGround = "underGround"
 
+--- @class TransportLineGroup
+--- @type TransportLineGroup
+local TransportLineGroup = {}
+TransportLineGroup.normalGroupDict = {}
+TransportLineGroup.undergroundGroupDict = {}
+TransportLineGroup.splitterGroupDict = {}
+TransportLineGroup.loaded = false
+
+function TransportLineGroup.add(normal, underground, splitter)
+    assert(normal and underground)
+    local group = {
+        [TransportLineType.normalBelt] = game.entity_prototypes[normal],
+        [TransportLineType.undergroundBelt] = game.entity_prototypes[underground],
+        [TransportLineType.splitterBelt] = game.entity_prototypes[splitter],
+    }
+    TransportLineGroup.normalGroupDict[normal] = group
+    TransportLineGroup.undergroundGroupDict[underground] = group
+    if splitter then
+        TransportLineGroup.splitterGroupDict[splitter] = group
+    end
+end
+
+function TransportLineGroup.tryLoadAllGroups()
+    if TransportLineGroup.loaded then
+        return
+    end
+    TransportLineGroup.loaded = true
+    TransportLineGroup.add("transport-belt", "underground-belt", "splitter")
+    TransportLineGroup.add("fast-transport-belt", "fast-underground-belt", "fast-splitter")
+    TransportLineGroup.add("express-transport-belt", "express-underground-belt", "express-splitter")
+    TransportLineGroup.add("pipe", "pipe-to-ground")
+end
+
+function TransportLineGroup.getLineGroup(entity_name)
+    for _, dict in ipairs { TransportLineGroup.normalGroupDict, TransportLineGroup.undergroundGroupDict, TransportLineGroup.splitterGroupDict } do
+        if dict[entity_name] then
+            return dict[entity_name]
+        end
+    end
+    logging.log("failed to find line group of " .. entity_name)
+    return nil
+end
+
 --- @param entity_name string
 --- @return TransportLineType|nil
 function TransportLineType.getType(entity_name)
@@ -56,6 +99,33 @@ function TransportLineType.getType(entity_name)
     type.groundType = prototype.max_underground_distance and TransportLineType.underGround or TransportLineType.onGround
     logging.log("type of " .. entity_name .. " is " .. serpent.line(type))
     return type
+end
+
+--- @return LuaEntityPrototype|nil
+function TransportLineType.onGroundVersionOf(entity_name)
+    TransportLineGroup.tryLoadAllGroups()
+    local lineGroup = TransportLineGroup.getLineGroup(entity_name)
+    if lineGroup then
+        return lineGroup[TransportLineType.normalBelt]
+    end
+end
+
+--- @return LuaEntityPrototype|nil
+function TransportLineType.splitterVersionOf(entity_name)
+    TransportLineGroup.tryLoadAllGroups()
+    local lineGroup = TransportLineGroup.getLineGroup(entity_name)
+    if lineGroup then
+        return lineGroup[TransportLineType.splitterBelt]
+    end
+end
+
+--- @return LuaEntityPrototype|nil
+function TransportLineType.undergroundVersionOf(entity_name)
+    TransportLineGroup.tryLoadAllGroups()
+    local lineGroup = TransportLineGroup.getLineGroup(entity_name)
+    if lineGroup then
+        return lineGroup[TransportLineType.undergroundBelt]
+    end
 end
 
 return TransportLineType

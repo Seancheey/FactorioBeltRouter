@@ -16,7 +16,8 @@ local logging = require("__MiscLib__/logging")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
 local releaseMode = require("release")
-
+--- @type TransportLineType
+local TransportLineType = require("transport_line_type")
 --- @type table<string, boolean>
 local loggingCategories = {
     reward = false
@@ -53,7 +54,7 @@ local function setStartingTransportLine(event)
     if not selectedEntity then
         return
     end
-    if selectedEntity.prototype.belt_speed or selectedEntity.prototype.name == "pipe" then
+    if TransportLineType.getType(selectedEntity.prototype.name) then
         pushNewStartingPosition(event.player_index, selectedEntity)
         player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
     end
@@ -65,7 +66,7 @@ local function setEndingTransportLine(event, config)
     if not selectedEntity then
         return
     end
-    if not selectedEntity.prototype.belt_speed and selectedEntity.prototype.name ~= "pipe" then
+    if not TransportLineType.getType(selectedEntity.prototype.name) then
         return
     end
     local startingEntity = popNewStartingPosition(event.player_index)
