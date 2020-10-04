@@ -54,7 +54,18 @@ local function setStartingTransportLine(event)
     if not selectedEntity then
         return
     end
-    if TransportLineType.getType(selectedEntity.prototype.name) then
+    local transportLineType = TransportLineType.getType(selectedEntity.prototype.name)
+    if transportLineType then
+        if transportLineType.beltType == transportLineType.splitterBelt then
+            local posX = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
+            local posY = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y - 0.5 or selectedEntity.position.y
+            selectedEntity = {
+                name = selectedEntity.name,
+                direction = selectedEntity.direction,
+                position = { x = posX, y = posY },
+                valid = true
+            }
+        end
         pushNewStartingPosition(event.player_index, selectedEntity)
         player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
     end

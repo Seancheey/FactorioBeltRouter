@@ -18,6 +18,8 @@ local Vector2D = require("__MiscLib__/vector2d")
 --- @type PrototypeInfo
 local PrototypeInfo = require("prototype_info")
 local release_mode = require("release")
+--- @type TransportLineType
+local TransportLineType = require("transport_line_type")
 
 local DirectionHelper = {}
 
@@ -168,12 +170,11 @@ function MinDistanceDict:forEach(f)
     end
 end
 
+--- An "Abstract" transport line connector
 --- @class TransportLineConnector
 --- @field canPlaceEntityFunc fun(position: Vector2D): boolean
 --- @field placeEntityFunc fun(entity: LuaEntityPrototype)
 --- @field getEntityFunc fun(position: Vector2D): LuaEntity
-
---- An "Abstract" transport line connector
 --- @type TransportLineConnector
 local TransportLineConnector = {}
 
@@ -207,11 +208,16 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     if not endingEntity.valid then
         return "ending line entity is no longer valid"
     end
+    local onGroundVersion = TransportLineType.onGroundVersionOf(startingEntity.name)
+    if not onGroundVersion then
+        return "Can't find an above-ground version of this entity"
+    end
     startingEntity = {
-        name = startingEntity.name,
+        name = onGroundVersion.name,
         position = Vector2D.fromPosition(startingEntity.position),
         direction = startingEntity.direction or defines.direction.north
     }
+    logging.log(startingEntity)
     endingEntity = {
         name = endingEntity.name,
         position = Vector2D.fromPosition(endingEntity.position),
@@ -231,7 +237,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     end
     -- A* algorithm starts from endingEntity so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingEntity, nil))
-    local maxTryNum = 100000
+    local maxTryNum = 1000
     local tryNum = 0
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
@@ -241,7 +247,9 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         if transportChain.entity.position == startingEntityTargetPos then
             -- make sure direction diff is no more than 90 deg for belts or 0 deg underground belt
             local isUnderground = PrototypeInfo.is_underground_transport(transportChain.entity.name)
-            if isUnderground and transportChain.entity.direction == startingEntity.direction or not isUnderground and (transportChain.entity.direction - startingEntity.direction) % 8 <= 2 then
+            if isUnderground and transportChain.entity.direction == startingEntity.direction
+                    or
+                    not isUnderground and (transportChain.entity.direction - startingEntity.direction) % 8 <= 2 then
                 transportChain:placeAllEntities(self.placeEntityFunc)
                 logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
                 return
@@ -274,7 +282,7 @@ end
 function TransportLineConnector:surroundingCandidates(transportChain, visitedPositions, basePrototype, allowUnderground)
     assertNotNull(self, transportChain, basePrototype, allowUnderground)
 
-    local underground_prototype = PrototypeInfo.underground_transport_prototype(basePrototype.name)
+    local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
     --- @type table<LuaEntity, number>
     local candidates = {}
     --- @type table<defines.direction, boolean>
