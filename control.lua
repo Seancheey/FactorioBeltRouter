@@ -18,6 +18,8 @@ local TransportLineConnector = require("transport_line_connector")
 local releaseMode = require("release")
 --- @type TransportLineType
 local TransportLineType = require("transport_line_type")
+--- @type Vector2D
+local Vector2D = require("__MiscLib__/vector2d")
 --- @type table<string, boolean>
 local loggingCategories = {
     reward = false
@@ -57,12 +59,21 @@ local function setStartingTransportLine(event)
     local transportLineType = TransportLineType.getType(selectedEntity.prototype.name)
     if transportLineType then
         if transportLineType.beltType == transportLineType.splitterBelt then
-            local posX = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
-            local posY = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y - 0.5 or selectedEntity.position.y
+            -- since splitter belt has 2-block width, we need to figure out which part is routable and smartly choose the routable belt
+            local splitterPositions = ArrayList.new { Vector2D.new(0, 0), Vector2D.new(0, 0) }
+            splitterPositions[1].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
+            splitterPositions[1].y = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y - 0.5 or selectedEntity.position.y
+            splitterPositions[2].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x + 0.5 or selectedEntity.position.x
+            splitterPositions[2].y = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y + 0.5 or selectedEntity.position.y
+            local routablePositions = splitterPositions:filter(function(pos)
+                local targetPos = pos + Vector2D.fromDirection(selectedEntity.direction)
+                return player.surface.find_entities({{ targetPos.x, targetPos.y }, { targetPos.x, targetPos.y }})[1] == nil
+            end)
+            local chosenPosition = #routablePositions > 0 and routablePositions[1] or splitterPositions[1]
             selectedEntity = {
                 name = selectedEntity.name,
                 direction = selectedEntity.direction,
-                position = { x = posX, y = posY },
+                position = chosenPosition,
                 valid = true
             }
         end
