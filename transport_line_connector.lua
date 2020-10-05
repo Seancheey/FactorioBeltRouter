@@ -272,7 +272,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 local entityType = TransportLineType.getType(entity.name)
                 if entityType.beltType == TransportLineType.normalBelt then
                     return entity.position == startingEntityTargetPos and (entity.direction - startingEntity.direction) % 8 <= 2
-                elseif entityType.beltType == TransportLineType.underGround then
+                elseif entityType.beltType == TransportLineType.undergroundBelt then
                     return entity.position == startingEntityTargetPos and (entity.direction == startingEntity.direction)
                 else
                     return false
