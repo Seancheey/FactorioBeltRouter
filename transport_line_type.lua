@@ -62,6 +62,34 @@ function TransportLineGroup.getLineGroup(entity_name)
             return dict[entity_name]
         end
     end
+    if TransportLineType.getType(entity_name).lineType == TransportLineType.itemLine then
+        local groupBeltSpeed = game.entity_prototypes[entity_name].belt_speed
+        assert(groupBeltSpeed, " item line is supposed to have belt speed, but \"" .. entity_name .. "\" doesn't?")
+        local beltVersion, undergroundVersion, splitterVersion
+        for _, entityPrototype in pairs(game.entity_prototypes) do
+            if entityPrototype.belt_speed == groupBeltSpeed then
+                if entityPrototype.max_underground_distance then
+                    undergroundVersion = entityPrototype
+                    -- TODO: find a better way of classifying splitter
+                elseif string.find(entityPrototype.name, "splitter") then
+                    splitterVersion = entityPrototype
+                else
+                    beltVersion = entityPrototype
+                end
+
+                if undergroundVersion and splitterVersion and beltVersion then
+                    break
+                end
+            end
+        end
+        logging.log("Found mod belt group: " .. beltVersion.name .. ", " .. undergroundVersion.name .. ", " .. splitterVersion.name)
+        TransportLineGroup.add(beltVersion.name, undergroundVersion.name, splitterVersion.name)
+        return {
+            [TransportLineType.normalBelt] = beltVersion,
+            [TransportLineType.undergroundBelt] = undergroundVersion,
+            [TransportLineType.splitterBelt] = splitterVersion,
+        }
+    end
     logging.log("failed to find line group of " .. entity_name)
     return nil
 end

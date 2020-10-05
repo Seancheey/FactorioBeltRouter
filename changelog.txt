@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2020.10.05
+  Features:
+    - Add mod belts routing supports
+    - Add support for routing pipes
+    - Add language support for Chinese
+
+---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2020.10.04
   Optimisations:

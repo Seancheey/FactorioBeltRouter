@@ -67,7 +67,7 @@ local function setStartingTransportLine(event)
             splitterPositions[2].y = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y + 0.5 or selectedEntity.position.y
             local routablePositions = splitterPositions:filter(function(pos)
                 local targetPos = pos + Vector2D.fromDirection(selectedEntity.direction)
-                return player.surface.find_entities({{ targetPos.x, targetPos.y }, { targetPos.x, targetPos.y }})[1] == nil
+                return player.surface.find_entities({ { targetPos.x, targetPos.y }, { targetPos.x, targetPos.y } })[1] == nil
             end)
             local chosenPosition = #routablePositions > 0 and routablePositions[1] or splitterPositions[1]
             logging.log("splitter chosen position = " .. serpent.line(chosenPosition))
@@ -102,6 +102,7 @@ local function setEndingTransportLine(event, config)
     local function canPlace(position)
         return surface.can_place_entity { name = "transport-belt", position = position }
     end
+    local num = 1
     local function place(entity)
         entity = Copy.deep_copy(entity)
         entity.force = player.force
@@ -110,6 +111,10 @@ local function setEndingTransportLine(event, config)
             entity.name = "entity-ghost"
         end
         entity.player = player
+        if not releaseMode then
+            player.create_local_flying_text{text = tostring(num), position = entity.position, time_to_live = 100000, speed = 0.000001}
+            num = num + 1
+        end
         surface.create_entity(entity)
     end
     local function getEntity(position)
