@@ -241,6 +241,11 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         position = Vector2D.fromPosition(endingEntity.position),
         direction = endingEntity.direction or defines.direction.north
     }
+    -- TODO Special trick to compromise TransportChain underground pipe direction, should change when transport chain is updated
+    if TransportLineType.getType(endingEntity.name).lineType == TransportLineType.fluidLine and TransportLineType.getType(endingEntity.name).groundType == TransportLineType.underGround then
+        endingEntity.direction = Vector2D.fromDirection(endingEntity.direction):reverse():toDirection()
+    end
+
     local allowUnderground = true
     if additionalConfig and additionalConfig.allowUnderground ~= nil then
         allowUnderground = additionalConfig.allowUnderground
@@ -248,8 +253,11 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local preferHorizontal = (additionalConfig and (additionalConfig.preferHorizontal ~= nil)) and additionalConfig.preferHorizontal or true
     local minDistanceDict = MinDistanceDict.new()
     local priorityQueue = MinHeap.new()
-    local startingEntityTargetPos = DirectionHelper.targetPositionOf(startingEntity)
-    if not self.canPlaceEntityFunc(startingEntityTargetPos) then
+
+    -- Here starts the main logic of function
+
+    local startingEntityTargetPos = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingEntity) or startingEntity.position
+    if not self.canPlaceEntityFunc(startingEntityTargetPos) and TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine then
         logging.log("starting entity's target position is blocked")
         return
     end
@@ -258,32 +266,39 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local maxTryNum = 5000
     local tryNum = 0
 
-    local surroundCandidateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and TransportLineConnector.surroundingCandidates or TransportLineConnector.fluidSurroundingCandidates
-
+    local surroundCandidateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and TransportLineConnector.itemSurroundingCandidates or TransportLineConnector.fluidSurroundingCandidates
+    local canTerminateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and
+            function(entity)
+                local entityType = TransportLineType.getType(entity.name)
+                if entityType.beltType == TransportLineType.normalBelt then
+                    return entity.position == startingEntityTargetPos and (entity.direction - startingEntity.direction) % 8 <= 2
+                elseif entityType.beltType == TransportLineType.underGround then
+                    return entity.position == startingEntityTargetPos and (entity.direction == startingEntity.direction)
+                else
+                    return false
+                end
+            end or
+            function(entity)
+                local groundType = TransportLineType.getType(entity.name).groundType
+                if groundType == TransportLineType.onGround then
+                    return math.abs(entity.position.x - startingEntity.position.x) + math.abs(entity.position.y - startingEntity.position.y) <= 1
+                else
+                    return DirectionHelper.sourcePositionOf(entity) == startingEntity.position
+                end
+            end
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
         local transportChain = priorityQueue:pop().val
 
-        local continue = false
-        if transportChain.entity.position == startingEntityTargetPos then
-            -- make sure direction diff is no more than 90 deg for belts or 0 deg underground belt
-            local isUnderground = PrototypeInfo.is_underground_transport(transportChain.entity.name)
-            if isUnderground and transportChain.entity.direction == startingEntity.direction
-                    or
-                    not isUnderground and (transportChain.entity.direction - startingEntity.direction) % 8 <= 2 then
-                transportChain:placeAllEntities(self.placeEntityFunc)
-                logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
-                return
-            else
-                continue = true
-            end
+        if canTerminateFunc(transportChain.entity) then
+            transportChain:placeAllEntities(self.placeEntityFunc)
+            logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
+            return
         end
-        if not continue then
-            for entity, travelDistance in pairs(surroundCandidateFunc(self, transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground)) do
-                assert(entity and travelDistance)
-                local newChain = TransportChain.new(entity, transportChain, travelDistance)
-                priorityQueue:push(self:estimateDistance(entity, startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
-            end
+        for entity, travelDistance in pairs(surroundCandidateFunc(self, transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground)) do
+            assert(entity and travelDistance)
+            local newChain = TransportChain.new(entity, transportChain, travelDistance)
+            priorityQueue:push(self:estimateDistance(entity, startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
         end
         tryNum = tryNum + 1
     end
@@ -356,7 +371,7 @@ end
 --- @param basePrototype LuaEntityPrototype transport line's base entity prototype
 --- @param transportChain TransportChain
 --- @return table<LuaEntity, number> entity to its travel distance
-function TransportLineConnector:surroundingCandidates(transportChain, visitedPositions, basePrototype, allowUnderground)
+function TransportLineConnector:itemSurroundingCandidates(transportChain, visitedPositions, basePrototype, allowUnderground)
     assertNotNull(self, transportChain, basePrototype, allowUnderground)
 
     local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
