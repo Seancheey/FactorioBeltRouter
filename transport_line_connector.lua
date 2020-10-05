@@ -69,6 +69,8 @@ function DirectionHelper.legalSourcesOf(entity)
     return legalSources
 end
 
+--- Transport chain is an intermediate generated backward linked list that represents a whole transport line.
+--- Each node in this linked list represents either one belt, or a pair of underground belt. (in this case the "entity" field represents the input belt, and output belt is inferred by entityDistance + direction)
 --- @class TransportChain
 --- @field entity LuaEntity
 --- @field entityDistance number
@@ -105,19 +107,35 @@ end
 --- @param placeFunc fun(entity: LuaEntityPrototype)
 function TransportChain:placeAllEntities(placeFunc)
     local transportChain = self
+    local place = function(entity)
+        if transportChain.prevChain ~= nil then
+            placeFunc(entity)
+        end
+    end
     while transportChain ~= nil do
         if game.entity_prototypes[transportChain.entity.name].max_underground_distance then
-            transportChain.entity.type = "input"
-            placeFunc(transportChain.entity)
+            local isItemLine = TransportLineType.getType(transportChain.entity.name).lineType == TransportLineType.itemLine
+            if isItemLine then
+                transportChain.entity.type = "input"
+            else
+                transportChain.entity.direction = Vector2D.fromDirection(transportChain.entity.direction):reverse():toDirection()
+            end
+            place(transportChain.entity)
             -- if the entity is underground line, also place its complement
-            placeFunc {
+            local outputPosition = Vector2D.fromDirection(transportChain.entity.direction or defines.direction.north):scale(transportChain.entityDistance - 1)
+            if not isItemLine then
+                outputPosition = outputPosition:reverse()
+            end
+            outputPosition = outputPosition + Vector2D.fromPosition(transportChain.entity.position)
+            local outputDirection = isItemLine and transportChain.entity.direction or Vector2D.fromDirection(transportChain.entity.direction):reverse():toDirection()
+            place {
                 name = transportChain.entity.name,
-                position = Vector2D.fromDirection(transportChain.entity.direction or defines.direction.north):scale(transportChain.entityDistance - 1) + Vector2D.fromPosition(transportChain.entity.position),
-                direction = transportChain.entity.direction,
+                position = outputPosition,
+                direction = outputDirection,
                 type = "output"
             }
         else
-            placeFunc(transportChain.entity)
+            place(transportChain.entity)
         end
         transportChain = transportChain.prevChain
     end
@@ -239,6 +257,9 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     priorityQueue:push(0, TransportChain.new(endingEntity, nil))
     local maxTryNum = 5000
     local tryNum = 0
+
+    local surroundCandidateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and TransportLineConnector.surroundingCandidates or TransportLineConnector.fluidSurroundingCandidates
+
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
         local transportChain = priorityQueue:pop().val
@@ -258,7 +279,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             end
         end
         if not continue then
-            for entity, travelDistance in pairs(self:surroundingCandidates(transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground)) do
+            for entity, travelDistance in pairs(surroundCandidateFunc(self, transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground)) do
                 assert(entity and travelDistance)
                 local newChain = TransportChain.new(entity, transportChain, travelDistance)
                 priorityQueue:push(self:estimateDistance(entity, startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
@@ -274,6 +295,62 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         return "Failed to connect transport line within " .. tostring(maxTryNum) .. " trials"
     end
     return
+end
+
+--- @param basePrototype LuaEntityPrototype transport line's base entity prototype
+--- @param transportChain TransportChain
+--- @return table<LuaEntity, number> entity to its travel distance
+function TransportLineConnector:fluidSurroundingCandidates(transportChain, visitedPositions, basePrototype, allowUnderground)
+    assertNotNull(self, transportChain, basePrototype, allowUnderground)
+    local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
+    --- @type table<LuaEntity, number>
+    local candidates = {}
+    local legalDirections
+    if PrototypeInfo.is_underground_transport(transportChain.entity.name) then
+        -- underground pipe's input only allows one direction
+        legalDirections = { [Vector2D.fromDirection(transportChain.entity.direction):reverse():toDirection()] = true }
+    else
+        -- normal pipe would allow all legal directions
+        legalDirections = {
+            [defines.direction.north] = true,
+            [defines.direction.west] = true,
+            [defines.direction.south] = true,
+            [defines.direction.east] = true
+        }
+    end
+    for direction, _ in pairs(legalDirections) do
+        local directionVector = Vector2D.fromDirection(direction)
+        -- test if we can place it underground
+        if allowUnderground then
+            local targetPos = Vector2D.fromPosition(transportChain.entity.position)
+            local outputUndergroundPos = directionVector + targetPos
+            -- make sure output underground belt can fit into map
+            if self.canPlaceEntityFunc(outputUndergroundPos) then
+                for underground_distance = underground_prototype.max_underground_distance + 1, 3, -1 do
+                    candidates[{
+                        name = underground_prototype.name,
+                        direction = directionVector:reverse():toDirection(),
+                        position = directionVector:scale(underground_distance) + targetPos
+                    }] = underground_distance
+                end
+            end
+        end
+        -- test if we can place it on ground
+        local onGroundPos = directionVector + Vector2D.fromPosition(transportChain.entity.position)
+        candidates[{
+            name = basePrototype.name,
+            -- pipe itself doesn't have direction
+            direction = 0,
+            position = onGroundPos
+        }] = 1
+    end
+    local legalCandidates = {}
+    for candidateEntity, travelDistance in pairs(candidates) do
+        if self:testCanPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, visitedPositions, travelDistance) then
+            legalCandidates[candidateEntity] = travelDistance
+        end
+    end
+    return legalCandidates
 end
 
 --- @param basePrototype LuaEntityPrototype transport line's base entity prototype
