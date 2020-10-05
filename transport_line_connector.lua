@@ -347,7 +347,13 @@ function TransportLineConnector:testCanPlace(entity, cumulativeDistance, minDist
         for testDiff = 1, undergroundDistance - 1, 1 do
             local testPos = entity.position + Vector2D.fromDirection(entity.direction):scale(testDiff)
             local entityInMiddle = self.getEntityFunc(testPos)
-            if entityInMiddle and ((entity.direction or defines.direction.north) - entity.direction) % 4 == 0 and entityInMiddle.name == entity.name then
+            if entityInMiddle
+                and ((entity.direction or defines.direction.north) - entity.direction) % 4 == 0
+                and (
+                        entityInMiddle.name == entity.name or
+                        (entityInMiddle.type =="entity-ghost" 
+                            and entityInMiddle.ghost_name == entity.name)
+                ) then
                 return false
             end
         end
