@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.1
+Date: 2020.10.05
+  Optimisations:
+    - Special thanks to ChrislyBear for fixing bug about building belts that may collides with entity ghosts!
+
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
 Date: 2020.10.05
   Features:

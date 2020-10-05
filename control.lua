@@ -100,7 +100,7 @@ local function setEndingTransportLine(event, config)
     logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
     local function canPlace(position)
-        return surface.can_place_entity { name = "transport-belt", position = position }
+        return surface.can_place_entity { name = "transport-belt", position = position, build_check_type = defines.build_check_type.ghost_place }
     end
     local num = 1
     local function place(entity)
