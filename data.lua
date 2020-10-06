@@ -12,7 +12,7 @@ data:extend {
     {
         type = "custom-input",
         name = "build-transport-line-no-underground",
-        key_sequence = "SHIFT + CONTROL + mouse-button-1 "
+        key_sequence = "CONTROL + SHIFT + mouse-button-1"
     },
     {
         type = "custom-input",
