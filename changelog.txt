@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.0
+Date: 2020.10.06
+  Optimisations:
+    - Path finder now avoids neighboring belts/pipe and can interfere it
+  Bugfixes:
+    - Fix bug that makes path finder unable to build underground belt
+    - Fix bug that makes shortcut for build transport line with disallowing underground belt not working
+    - Fix bug that makes player standing position affecting belt routing
+
+---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 2020.10.05
   Optimisations:

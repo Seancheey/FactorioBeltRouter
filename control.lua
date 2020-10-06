@@ -53,6 +53,7 @@ end
 local function setStartingTransportLine(event)
     local player = game.players[event.player_index]
     local selectedEntity = player.selected
+    logging.log("speed:" .. tostring(selectedEntity.speed) .. "espeed:" .. tostring(selectedEntity.effective_speed))
     if not selectedEntity then
         return
     end
@@ -112,13 +113,18 @@ local function setEndingTransportLine(event, config)
         end
         entity.player = player
         if not releaseMode then
-            player.create_local_flying_text{text = tostring(num), position = entity.position, time_to_live = 100000, speed = 0.000001}
+            player.create_local_flying_text { text = tostring(num), position = entity.position, time_to_live = 100000, speed = 0.000001 }
             num = num + 1
         end
         surface.create_entity(entity)
     end
     local function getEntity(position)
-        return surface.find_entities({ { position.x, position.y }, { position.x, position.y } })[1]
+        for _, entity in pairs(surface.find_entities({ { position.x, position.y }, { position.x, position.y } })) do
+            -- don't want player/other vehicles to be included
+            if TransportLineType.getType(entity.name) then
+                return entity
+            end
+        end
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity)
     local errorMessage = transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, config)
