@@ -49,6 +49,20 @@ function DirectionHelper.targetPosition(position, direction)
     return Vector2D.fromPosition(position) + Vector2D.fromDirection(direction or defines.direction.north)
 end
 
+--- @param position Vector2D
+--- @param getEntityFunc fun()
+--- @return LuaEntity[] | ArrayList
+function DirectionHelper.neighboringEntities(position, getEntityFunc)
+    local entities = ArrayList.new()
+    for _, direction in ipairs { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west } do
+        local entity = getEntityFunc(Vector2D.fromDirection(direction) + position)
+        if entity ~= nil then
+            entities:add(entity)
+        end
+    end
+    return entities
+end
+
 --- @param entity LuaEntity
 --- @return LuaEntity[]|ArrayList entity with only direction and position
 function DirectionHelper.legalSourcesOf(entity)
@@ -62,7 +76,7 @@ function DirectionHelper.legalSourcesOf(entity)
         local banDirection = Vector2D.fromDirection(entity.direction):reverse():toDirection()
         for _, direction in ipairs { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west } do
             if direction ~= banDirection then
-                legalSources:add { position = DirectionHelper.sourcePosition(entity.position, direction), direction = direction }
+                legalSources:add { position = DirectionHelper.sourcePosition(entity.position, direction), direction = (direction + 4) % 8 }
             end
         end
     end
@@ -152,39 +166,46 @@ function MinDistanceDict.new()
     return setmetatable({}, { __index = MinDistanceDict })
 end
 
+function MinDistanceDict.__marshalize(vector, direction)
+    return tostring(vector.x) .. '|' .. tostring(vector.y) .. '|' .. tostring(direction)
+end
+
+function MinDistanceDict.__unmarshalize(key)
+    local sep1 = string.find(key, '|')
+    local x = string.sub(key, 1, sep1 - 1)
+    local sep2 = string.find(key, '|', sep1 + 1)
+    local y = string.sub(key, sep1 + 1, sep2 - 1)
+    local direction = string.sub(key, sep2 + 1, -1)
+    return Vector2D.new(tonumber(x), tonumber(y)), tonumber(direction)
+end
+
 --- @param vector Vector2D
 function MinDistanceDict:put(vector, direction, val)
-    assertNotNull(self, vector, val)
-    if self[vector.x] == nil then
-        self[vector.x] = {}
-    end
-    self[vector.x][vector.y * MinDistanceDict.__directionNum + direction] = val
+    assertNotNull(self, vector, direction, val)
+    local key = MinDistanceDict.__marshalize(vector, direction)
+    self[key] = val
 end
 
 --- @param entity LuaEntity
 function MinDistanceDict:putUsingTargetEntity(entity, val)
     if PrototypeInfo.is_underground_transport(entity.name) then
-
+        -- TODO: also add input underground belt
     end
     self:put(entity.position, entity.direction, val)
 end
 
 --- @return number
 function MinDistanceDict:get(vector, direction)
-    if self[vector.x] == nil then
-        return nil
-    end
-    return self[vector.x][vector.y * MinDistanceDict.__directionNum + direction]
+    assertNotNull(self, vector, direction)
+
+    return self[MinDistanceDict.__marshalize(vector, direction)]
 end
 
 --- @param f fun(key1:vector, key2: defines.direction, val:number)
 function MinDistanceDict:forEach(f)
-    for x, ys in pairs(self) do
-        for k2, val in pairs(ys) do
-            local y = math.floor(k2 / MinDistanceDict.__directionNum)
-            local direction = k2 % MinDistanceDict.__directionNum
-            f(Vector2D.new(x, y), direction, val)
-        end
+    for key, val in pairs(self) do
+        local vector, direction = MinDistanceDict.__unmarshalize(key)
+        f(vector, direction, val)
     end
 end
 
@@ -295,7 +316,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
             return
         end
-        for entity, travelDistance in pairs(surroundCandidateFunc(self, transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground)) do
+        for entity, travelDistance in pairs(surroundCandidateFunc(self, transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground, startingEntity)) do
             assert(entity and travelDistance)
             local newChain = TransportChain.new(entity, transportChain, travelDistance)
             priorityQueue:push(self:estimateDistance(entity, startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
@@ -315,7 +336,7 @@ end
 --- @param basePrototype LuaEntityPrototype transport line's base entity prototype
 --- @param transportChain TransportChain
 --- @return table<LuaEntity, number> entity to its travel distance
-function TransportLineConnector:fluidSurroundingCandidates(transportChain, visitedPositions, basePrototype, allowUnderground)
+function TransportLineConnector:fluidSurroundingCandidates(transportChain, minDistanceDict, basePrototype, allowUnderground, startingEntity)
     assertNotNull(self, transportChain, basePrototype, allowUnderground)
     local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
     --- @type table<LuaEntity, number>
@@ -361,7 +382,7 @@ function TransportLineConnector:fluidSurroundingCandidates(transportChain, visit
     end
     local legalCandidates = {}
     for candidateEntity, travelDistance in pairs(candidates) do
-        if self:testCanPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, visitedPositions, travelDistance) then
+        if self:testCanPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, minDistanceDict, travelDistance, startingEntity) then
             legalCandidates[candidateEntity] = travelDistance
         end
     end
@@ -371,7 +392,7 @@ end
 --- @param basePrototype LuaEntityPrototype transport line's base entity prototype
 --- @param transportChain TransportChain
 --- @return table<LuaEntity, number> entity to its travel distance
-function TransportLineConnector:itemSurroundingCandidates(transportChain, visitedPositions, basePrototype, allowUnderground)
+function TransportLineConnector:itemSurroundingCandidates(transportChain, minDistanceDict, basePrototype, allowUnderground, startingEntity)
     assertNotNull(self, transportChain, basePrototype, allowUnderground)
 
     local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
@@ -419,7 +440,7 @@ function TransportLineConnector:itemSurroundingCandidates(transportChain, visite
     end
     local legalCandidates = {}
     for candidateEntity, travelDistance in pairs(candidates) do
-        if self:testCanPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, visitedPositions, travelDistance) then
+        if self:testCanPlace(candidateEntity, transportChain.cumulativeDistance + travelDistance, minDistanceDict, travelDistance, startingEntity) then
             legalCandidates[candidateEntity] = travelDistance
         end
     end
@@ -429,27 +450,55 @@ end
 --- @param entity LuaEntity
 --- @param cumulativeDistance number
 --- @param minDistanceDict MinDistanceDict
-function TransportLineConnector:testCanPlace(entity, cumulativeDistance, minDistanceDict, undergroundDistance)
-    assertNotNull(self, entity, cumulativeDistance, minDistanceDict)
+function TransportLineConnector:testCanPlace(entity, cumulativeDistance, minDistanceDict, undergroundDistance, startingEntity)
+    assertNotNull(self, entity, cumulativeDistance, minDistanceDict, startingEntity)
     if not self.canPlaceEntityFunc(entity.position) then
         return false
     end
-    if PrototypeInfo.is_underground_transport(entity.name) then
+
+    local entityType = TransportLineType.getType(entity.name)
+    if entityType.groundType == TransportLineType.underGround then
         -- make sure there is no interfering underground belts whose direction is parallel to our underground belt pair
         for testDiff = 1, undergroundDistance - 1, 1 do
             local testPos = entity.position + Vector2D.fromDirection(entity.direction):scale(testDiff)
             local entityInMiddle = self.getEntityFunc(testPos)
             if entityInMiddle
-                and ((entity.direction or defines.direction.north) - entity.direction) % 4 == 0
-                and (
-                        entityInMiddle.name == entity.name or
-                        (entityInMiddle.type =="entity-ghost" 
-                            and entityInMiddle.ghost_name == entity.name)
-                ) then
+                    and ((entity.direction or defines.direction.north) - entity.direction) % 4 == 0
+                    and (
+                    entityInMiddle.name == entity.name or
+                            (entityInMiddle.type == "entity-ghost"
+                                    and entityInMiddle.ghost_name == entity.name)
+            ) then
                 return false
             end
         end
     end
+    if entityType.lineType == TransportLineType.itemLine then
+        -- Check neighbor belts, make sure they don't face our path
+        for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
+            local neighborType = TransportLineType.getType(neighbor.name)
+            if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                if (neighbor.position - startingEntity.position):l1Norm() > 0.5 then
+                    logging.log("can't place at " .. serpent.line(entity.position))
+                    return false
+                end
+            end
+        end
+    elseif (entityType.lineType == TransportLineType.fluidLine and entityType.groundType == TransportLineType.onGround) then
+        -- Check neighbor pipes, make sure pipe are not our neighbor and underground pipe doesn't face our path
+        for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
+            local neighborType = TransportLineType.getType(neighbor.name)
+            if neighborType and neighborType.lineType == TransportLineType.fluidLine then
+                if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                    if (neighbor.position - startingEntity.position):l1Norm() > 0.5 then
+                        logging.log("can't place at " .. serpent.line(entity.position))
+                        return false
+                    end
+                end
+            end
+        end
+    end
+
 
     -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
     local distanceSmallerThanAny = false
@@ -476,18 +525,28 @@ function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDi
     -- We punish reversed direction, and reward same direction
     local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     logging.log("reward = " .. tostring(positionReward), "reward")
-    return (dx + dy - positionReward - directionReward) * 1.5
+    return (dx + dy - positionReward - directionReward) * 1.05 -- slightly encourage greedy-first
 end
 
---- @param visitedPositions MinDistanceDict
-function TransportLineConnector:debug_visited_position(visitedPositions)
+--- @param minDistanceDict MinDistanceDict
+function TransportLineConnector:debug_visited_position(minDistanceDict)
     if not release_mode then
-        visitedPositions:forEach(
-                function(vector, _, _)
-                    if self.canPlaceEntityFunc(vector) then
-                        self.placeEntityFunc({ name = "small-lamp", position = vector })
-                    end
+        local posDict = {}
+        minDistanceDict:forEach(
+                function(vector, direction, val)
+                    local key = tostring(vector.x) .. "," .. tostring(vector.y)
+                    posDict[key] = posDict[key] or { vector = vector, directions = {} }
+                    posDict[key].directions[direction] = val
                 end)
+        local directionMapping = { [0] = "N", [2] = "E", [4] = "S", [6] = "W" }
+        for _, dict in pairs(posDict) do
+            local vector = dict.vector
+            local text = ""
+            for direction, val in pairs(dict.directions) do
+                text = text .. directionMapping[direction] .. tostring(val)
+            end
+            game.players[1].create_local_flying_text { text = text, position = vector, time_to_live = 100000, speed = 0.000001 }
+        end
     end
 end
 
