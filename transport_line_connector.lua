@@ -462,12 +462,14 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
             local testPos = pathUnit.position + Vector2D.fromDirection(pathUnit.direction):scale(testDiff)
             local entityInMiddle = self.getEntityFunc(testPos)
             if entityInMiddle
-                    and ((pathUnit.direction or defines.direction.north) - pathUnit.direction) % 4 == 0
                     and (
                     entityInMiddle.name == pathUnit.name or
                             (entityInMiddle.type == "entity-ghost"
-                                    and entityInMiddle.ghost_name == pathUnit.name)
-            ) then
+                                    and entityInMiddle.ghost_name == pathUnit.name
+                            ))
+                    and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
+            then
+                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction))
                 return false
             end
         end
