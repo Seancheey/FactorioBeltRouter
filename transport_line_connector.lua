@@ -434,8 +434,8 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = TransportLineType.getType(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                    if (neighbor.position - startingEntity.position):l1Norm() > 0.5 then
-                        logging.log("can't place at " .. serpent.line(entity.position))
+                    if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position))
                         return false
                     end
                 end
@@ -446,8 +446,8 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 local neighborType = TransportLineType.getType(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
                     if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                        if (neighbor.position - startingEntity.position):l1Norm() > 0.5 then
-                            logging.log("can't place at " .. serpent.line(entity.position))
+                        if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position))
                             return false
                         end
                     end
