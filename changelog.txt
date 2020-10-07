@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.1
+Date: 2020.10.07
+  Optimisations:
+    - Slightly encourages more greedy-first search to save more searching time
+  Bugfixes:
+    - Fix bug that makes click on blueprint while selecting belts might crash game
+    - Fix bug that forces starting belt's next belt must have the same direction as starting belt
+
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
 Date: 2020.10.06
   Optimisations:
