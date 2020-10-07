@@ -9,6 +9,8 @@ local assertNotNull = require("__MiscLib__/assert_not_null")
 local Vector2D = require("__MiscLib__/vector2d")
 --- @type TransportLineType
 local TransportLineType = require("transport_line_type")
+--- @type ArrayList
+local ArrayList = require("__MiscLib__/array_list")
 
 --- @class LuaEntitySpec
 --- @field name string
@@ -27,8 +29,14 @@ local TransportLineType = require("transport_line_type")
 --- @type PathUnit
 local PathUnit = {}
 
+--- @return defines.direction
 local function reverseDirection(direction)
     return (direction + 4) % 8
+end
+
+--- @return defines.direction[]
+local function frontLeftRightOf(direction)
+    return { direction, (direction + 2) % 8, (direction + 6) % 8 }
 end
 
 --- @param entity LuaEntity
@@ -96,13 +104,58 @@ function PathUnit:toEntitySpecs()
 end
 
 --- @return PathUnit[]
-function PathUnit:possibleNextPathUnits()
+function PathUnit:possibleNextPathUnits(allowUnderground)
 
 end
 
 --- @return PathUnit[]
-function PathUnit:possiblePrevPathUnits()
-
+function PathUnit:possiblePrevPathUnits(allowUnderground)
+    local undergroundPrototype = TransportLineType.undergroundVersionOf(self.name)
+    local onGroundPrototype = TransportLineType.onGroundVersionOf(self.name)
+    local attribute = TransportLineType.getType(self.name)
+    --- @type PathUnit[]|ArrayList
+    local candidates = ArrayList.new()
+    --- @type defines.direction[]
+    local posDiffDirections
+    if attribute.lineType == TransportLineType.itemLine then
+        if attribute.beltType == TransportLineType.undergroundBelt or attribute.beltType == TransportLineType.splitterBelt then
+            -- underground belt/splitter's input only allows one direction
+            posDiffDirections = { reverseDirection(self.direction) }
+        else
+            -- normal belt would allow 3 legal directions
+            posDiffDirections = frontLeftRightOf(reverseDirection(self.direction))
+        end
+    else
+        if attribute.groundType == TransportLineType.underGround then
+            -- underground pipe's input only allows one direction
+            posDiffDirections = { reverseDirection(self.direction) }
+        else
+            -- normal pipe would allow 4 legal directions
+            posDiffDirections = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
+        end
+    end
+    for _, posDiffDirection in ipairs(posDiffDirections) do
+        local posDiffVector = Vector2D.fromDirection(posDiffDirection)
+        if allowUnderground then
+            -- adds underground candidates
+            for underground_distance = undergroundPrototype.max_underground_distance + 1, 3, -1 do
+                candidates:add(PathUnit:new {
+                    name = undergroundPrototype.name,
+                    direction = reverseDirection(posDiffDirection),
+                    position = posDiffVector:scale(underground_distance) + Vector2D.fromPosition(self.position),
+                    distance = underground_distance
+                })
+            end
+        end
+        -- adds on ground candidate
+        candidates:add(PathUnit:new {
+            name = onGroundPrototype.name,
+            direction = reverseDirection(posDiffDirection),
+            position = posDiffVector + Vector2D.fromPosition(self.position),
+            distance = 1
+        })
+    end
+    return candidates
 end
 
 function PathUnit:__eq(other)

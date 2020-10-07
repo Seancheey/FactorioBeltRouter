@@ -244,7 +244,6 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local tryNum = 0
 
     --- @return PathUnit[]
-    local surroundCandidateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and TransportLineConnector.itemSurroundingCandidates or TransportLineConnector.fluidSurroundingCandidates
     local canTerminateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and
             function(pathUnit)
                 local entityType = TransportLineType.getType(pathUnit.name)
@@ -273,7 +272,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
             return
         end
-        for _, pathUnit in pairs(surroundCandidateFunc(self, transportChain, minDistanceDict, game.entity_prototypes[startingEntity.name], allowUnderground, startingEntity)) do
+        for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)) do
             local newChain = TransportChain.new(pathUnit, transportChain)
             priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
         end
@@ -289,107 +288,13 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     return
 end
 
---- @param basePrototype LuaEntityPrototype transport line's base entity prototype
 --- @param transportChain TransportChain
 --- @return PathUnit[]
-function TransportLineConnector:fluidSurroundingCandidates(transportChain, minDistanceDict, basePrototype, allowUnderground, startingEntity)
-    assertNotNull(self, transportChain, basePrototype, allowUnderground)
-    local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
-    --- @type PathUnit[]
-    local candidates = ArrayList.new()
-    local legalDirections
-    if PrototypeInfo.is_underground_transport(transportChain.pathUnit.name) then
-        -- underground pipe's input only allows one direction
-        legalDirections = { [Vector2D.fromDirection(transportChain.pathUnit.direction):reverse():toDirection()] = true }
-    else
-        -- normal pipe would allow all legal directions
-        legalDirections = {
-            [defines.direction.north] = true,
-            [defines.direction.west] = true,
-            [defines.direction.south] = true,
-            [defines.direction.east] = true
-        }
-    end
-    for direction, _ in pairs(legalDirections) do
-        local directionVector = Vector2D.fromDirection(direction)
-        -- test if we can place it underground
-        if allowUnderground then
-            local targetPos = Vector2D.fromPosition(transportChain.pathUnit.position)
-            for underground_distance = underground_prototype.max_underground_distance + 1, 3, -1 do
-                candidates:add(PathUnit:new {
-                    name = underground_prototype.name,
-                    direction = directionVector:reverse():toDirection(),
-                    position = directionVector:scale(underground_distance) + targetPos,
-                    distance = underground_distance
-                })
-            end
-        end
-        -- test if we can place it on ground
-        local onGroundPos = directionVector + Vector2D.fromPosition(transportChain.pathUnit.position)
-        candidates:add(PathUnit:new {
-            name = basePrototype.name,
-            direction = 0,
-            position = onGroundPos,
-            distance = 1
-        })
-    end
-    local legalCandidates = ArrayList.new()
-    for _, pathUnit in pairs(candidates) do
-        if self:testCanPlace(pathUnit, transportChain.cumulativeDistance + pathUnit.distance, minDistanceDict, startingEntity) then
-            legalCandidates:add(pathUnit)
-        end
-    end
-    return legalCandidates
-end
+function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)
+    assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity)
 
---- @param basePrototype LuaEntityPrototype transport line's base entity prototype
---- @param transportChain TransportChain
---- @return PathUnit[]
-function TransportLineConnector:itemSurroundingCandidates(transportChain, minDistanceDict, basePrototype, allowUnderground, startingEntity)
-    assertNotNull(self, transportChain, basePrototype, allowUnderground)
+    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground)
 
-    local underground_prototype = TransportLineType.undergroundVersionOf(basePrototype.name)
-    --- @type PathUnit[]|ArrayList
-    local candidates = ArrayList.new()
-    --- @type table<defines.direction, boolean>
-    local legalDirections
-    if PrototypeInfo.is_underground_transport(transportChain.pathUnit.name) then
-        -- underground belt's input only allows one direction
-        legalDirections = { [Vector2D.fromDirection(transportChain.pathUnit.direction):reverse():toDirection()] = true }
-    else
-        -- normal belt would allow 3 legal directions
-        legalDirections = {
-            [defines.direction.north] = true,
-            [defines.direction.west] = true,
-            [defines.direction.south] = true,
-            [defines.direction.east] = true
-        }
-        legalDirections[transportChain.pathUnit.direction or defines.direction.north] = nil
-    end
-    for direction, _ in pairs(legalDirections) do
-        local directionVector = Vector2D.fromDirection(direction)
-        -- test if we can place it underground
-        if allowUnderground then
-            local targetPos = Vector2D.fromPosition(transportChain.pathUnit.position)
-            -- make sure output underground belt can fit into map
-            for underground_distance = underground_prototype.max_underground_distance + 1, 3, -1 do
-                candidates:add(PathUnit:new {
-                    name = underground_prototype.name,
-                    direction = directionVector:reverse():toDirection(),
-                    position = directionVector:scale(underground_distance) + targetPos,
-                    distance = underground_distance
-                })
-            end
-        end
-        -- test if we can place it on ground
-        local onGroundPos = directionVector + Vector2D.fromPosition(transportChain.pathUnit.position)
-        candidates:add(PathUnit:new {
-            name = basePrototype.name,
-            direction = directionVector:reverse():toDirection(),
-            position = onGroundPos,
-            distance = 1
-        })
-    end
     local legalCandidates = ArrayList.new()
     for _, pathUnit in ipairs(candidates) do
         if self:testCanPlace(pathUnit, transportChain.cumulativeDistance + pathUnit.distance, minDistanceDict, startingEntity) then
