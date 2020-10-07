@@ -221,7 +221,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         return "Can't find an above-ground version of this entity"
     end
     startingEntity = PathUnit:fromLuaEntity(startingEntity)
-    endingEntity = PathUnit:fromLuaEntity(endingEntity)
+    endingEntity = PathUnit:fromLuaEntity(endingEntity, true)
 
     local allowUnderground = true
     if additionalConfig and additionalConfig.allowUnderground ~= nil then
@@ -243,31 +243,11 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local maxTryNum = 5000
     local tryNum = 0
 
-    --- @return PathUnit[]
-    local canTerminateFunc = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and
-            function(pathUnit)
-                local entityType = TransportLineType.getType(pathUnit.name)
-                if entityType.beltType == TransportLineType.normalBelt then
-                    return pathUnit.position == startingEntityTargetPos and (pathUnit.direction - startingEntity.direction) % 8 <= 2
-                elseif entityType.beltType == TransportLineType.undergroundBelt then
-                    return pathUnit.position == startingEntityTargetPos and (pathUnit.direction == startingEntity.direction)
-                else
-                    return false
-                end
-            end or
-            function(pathUnit)
-                local groundType = TransportLineType.getType(pathUnit.name).groundType
-                if groundType == TransportLineType.onGround then
-                    return math.abs(pathUnit.position.x - startingEntity.position.x) + math.abs(pathUnit.position.y - startingEntity.position.y) <= 1
-                else
-                    return DirectionHelper.sourcePositionOf(pathUnit) == startingEntity.position
-                end
-            end
     while not priorityQueue:isEmpty() and tryNum < maxTryNum do
         --- @type TransportChain
         local transportChain = priorityQueue:pop().val
 
-        if canTerminateFunc(transportChain.pathUnit) then
+        if startingEntity:canConnect(transportChain.pathUnit) then
             transportChain:placeAllEntities(self.placeEntityFunc)
             logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
             return
