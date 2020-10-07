@@ -92,7 +92,6 @@ end
 --- @field pathUnit PathUnit
 --- @field prevChain TransportChain
 --- @field cumulativeDistance number
---- @field entity LuaEntity deprecated
 --- @type TransportChain
 local TransportChain = {}
 
@@ -153,14 +152,6 @@ function MinDistanceDict:put(vector, direction, val)
     assertNotNull(self, vector, direction, val)
     local key = MinDistanceDict.__marshalize(vector, direction)
     self[key] = val
-end
-
---- @param entity LuaEntity
-function MinDistanceDict:putUsingTargetEntity(entity, val)
-    if PrototypeInfo.is_underground_transport(entity.name) then
-        -- TODO: also add input underground belt
-    end
-    self:put(entity.position, entity.direction, val)
 end
 
 --- @return number
@@ -367,7 +358,7 @@ function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDi
     -- We punish reversed direction, and reward same direction
     local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     logging.log("reward = " .. tostring(positionReward), "reward")
-    return (dx + dy - positionReward - directionReward) * 1.05 -- slightly encourage greedy-first
+    return (dx + dy + 1 - positionReward - directionReward) * 1.1 -- slightly encourage greedy-first
 end
 
 --- @param minDistanceDict MinDistanceDict
