@@ -27,6 +27,27 @@ local TransportLineType = require("transport_line_type")
 --- @type PathUnit
 local PathUnit = {}
 
+local function reverseDirection(direction)
+    return (direction + 4) % 8
+end
+
+--- @param entity LuaEntity
+--- @return PathUnit
+function PathUnit:fromLuaEntity(entity)
+    local newUnit = PathUnit:new {
+        name = entity.name,
+        position = Vector2D.fromPosition(entity.position),
+        direction = entity.direction or defines.direction.north,
+        distance = 1
+    }
+    if TransportLineType.getType(entity.name).lineType == TransportLineType.fluidLine and TransportLineType.getType(entity.name).groundType == TransportLineType.underGround then
+        newUnit.direction = reverseDirection(newUnit.direction)
+    end
+    return newUnit
+end
+
+--- @param o PathUnit
+--- @return PathUnit
 function PathUnit:new(o)
     assertNotNull(o.name, o.position, o.direction, o.distance)
     assert(type(o.direction) == "number")
@@ -72,6 +93,20 @@ function PathUnit:toEntitySpecs()
             end
         end
     end
+end
+
+--- @return PathUnit[]
+function PathUnit:possibleNextPathUnits()
+
+end
+
+--- @return PathUnit[]
+function PathUnit:possiblePrevPathUnits()
+
+end
+
+function PathUnit:__eq(other)
+    return self.name == other.name and self.direction == other.direction and self.position == other.position and self.distance == other.distance and self.type == other.type
 end
 
 return PathUnit

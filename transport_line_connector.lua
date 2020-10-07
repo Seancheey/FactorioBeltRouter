@@ -220,26 +220,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     if not onGroundVersion then
         return "Can't find an above-ground version of this entity"
     end
-    --- @type PathUnit
-    startingEntity = PathUnit:new {
-        name = onGroundVersion.name,
-        position = Vector2D.fromPosition(startingEntity.position),
-        direction = startingEntity.direction or defines.direction.north,
-        distance = 1,
-        type = startingEntity.type
-    }
-    --- @type PathUnit
-    endingEntity = PathUnit:new {
-        name = endingEntity.name,
-        position = Vector2D.fromPosition(endingEntity.position),
-        direction = endingEntity.direction or defines.direction.north,
-        distance = 1,
-        type = endingEntity.type
-    }
-    -- TODO Special trick to compromise TransportChain underground pipe direction, should change when transport chain is updated
-    if TransportLineType.getType(endingEntity.name).lineType == TransportLineType.fluidLine and TransportLineType.getType(endingEntity.name).groundType == TransportLineType.underGround then
-        endingEntity.direction = Vector2D.fromDirection(endingEntity.direction):reverse():toDirection()
-    end
+    startingEntity = PathUnit:fromLuaEntity(startingEntity)
+    endingEntity = PathUnit:fromLuaEntity(endingEntity)
 
     local allowUnderground = true
     if additionalConfig and additionalConfig.allowUnderground ~= nil then
