@@ -53,7 +53,6 @@ end
 local function setStartingTransportLine(event)
     local player = game.players[event.player_index]
     local selectedEntity = player.selected
-    logging.log("speed:" .. tostring(selectedEntity.speed) .. "espeed:" .. tostring(selectedEntity.effective_speed))
     if not selectedEntity then
         return
     end
