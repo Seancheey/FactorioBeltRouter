@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2020.10.08
+  Optimisations:
+    - Distribute path finding across each game tick to reduce game lagging
+  Features:
+    - Added a mod setting for path finding speed
+    - Added a mod setting for path finding stop limit
+    - Player will now see path finding labels popping up to know the path finding progress
+
+---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2020.10.07
   Optimisations:

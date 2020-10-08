@@ -22,8 +22,15 @@ local TransportLineType = require("transport_line_type")
 local Vector2D = require("__MiscLib__/vector2d")
 --- @type table<string, boolean>
 local loggingCategories = {
-    reward = false
+    reward = false,
+    placing = false,
+    transportType = false
 }
+--- @type AsyncTaskManager
+local AsyncTaskManager = require("__MiscLib__/async_task")
+
+local taskManager = AsyncTaskManager:new()
+taskManager:resolveTaskEveryNthTick(1)
 
 for category, enable in pairs(loggingCategories) do
     logging.addCategory(category, releaseMode and false or enable)
@@ -125,8 +132,8 @@ local function setEndingTransportLine(event, config)
             end
         end
     end
-    local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity)
-    local errorMessage = transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, config)
+    local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity, taskManager)
+    local errorMessage = transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, taskManager, config, player)
     if errorMessage then
         player.print(errorMessage)
     end

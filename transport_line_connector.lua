@@ -171,6 +171,7 @@ end
 
 --- An "Abstract" transport line connector
 --- @class TransportLineConnector
+--- @field asyncTaskManager AsyncTaskManager
 --- @field canPlaceEntityFunc fun(position: Vector2D): boolean
 --- @field placeEntityFunc fun(entity: LuaEntityPrototype)
 --- @field getEntityFunc fun(position: Vector2D): LuaEntity
@@ -183,12 +184,13 @@ TransportLineConnector.__index = TransportLineConnector
 --- @param placeEntityFunc fun(entity: LuaEntityPrototype)
 --- @param getEntityFunc fun(position: Vector2D): LuaEntity
 --- @return TransportLineConnector
-function TransportLineConnector.new(canPlaceEntityFunc, placeEntityFunc, getEntityFunc)
-    assertNotNull(canPlaceEntityFunc, placeEntityFunc, getEntityFunc)
+function TransportLineConnector.new(canPlaceEntityFunc, placeEntityFunc, getEntityFunc, asyncTaskManager)
+    assertNotNull(canPlaceEntityFunc, placeEntityFunc, getEntityFunc, asyncTaskManager)
     return setmetatable(
             { canPlaceEntityFunc = canPlaceEntityFunc,
               placeEntityFunc = placeEntityFunc,
-              getEntityFunc = getEntityFunc
+              getEntityFunc = getEntityFunc,
+              asyncTaskManager = asyncTaskManager
             }, TransportLineConnector)
 end
 
@@ -198,18 +200,27 @@ end
 
 --- @param startingEntity LuaEntity
 --- @param endingEntity LuaEntity
+--- @param asyncTaskManager AsyncTaskManager
 --- @param additionalConfig LineConnectConfig optional
-function TransportLineConnector:buildTransportLine(startingEntity, endingEntity, additionalConfig)
+--- @param player LuaPlayer optional, player to inform when building finished
+function TransportLineConnector:buildTransportLine(startingEntity, endingEntity, asyncTaskManager, additionalConfig, player)
     assertNotNull(self, startingEntity, endingEntity)
+    local function reportToPlayer(text)
+        if player then
+            player.print(text)
+        end
+    end
     if not startingEntity.valid then
-        return "starting line entity is no longer valid"
+        reportToPlayer("starting line entity is no longer valid")
+        return
     end
     if not endingEntity.valid then
-        return "ending line entity is no longer valid"
+        reportToPlayer("ending line entity is no longer valid")
+        return
     end
     local onGroundVersion = TransportLineType.onGroundVersionOf(startingEntity.name)
     if not onGroundVersion then
-        return "Can't find an above-ground version of this entity"
+        reportToPlayer("Can't find an above-ground version of this entity")
     end
     startingEntity = PathUnit:fromLuaEntity(startingEntity)
     endingEntity = PathUnit:fromLuaEntity(endingEntity, true)
@@ -231,32 +242,44 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     end
     -- A* algorithm starts from endingEntity so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingEntity))
-    local maxTryNum = 5000
-    local tryNum = 0
-
-    while not priorityQueue:isEmpty() and tryNum < maxTryNum do
-        --- @type TransportChain
-        local transportChain = priorityQueue:pop().val
-
-        if startingEntity:canConnect(transportChain.pathUnit) then
-            transportChain:placeAllEntities(self.placeEntityFunc)
-            logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
-            return
+    local maxTryNum = settings.get_player_settings(player)["max-path-finding-explore-num"].value
+    local batchSize = settings.get_player_settings(player)["path-finding-test-per-tick"].value
+    local totalTryNum = 0
+    local taskPriority = game.tick
+    local function tryFindPath()
+        local foundPath = false
+        local tryNum = 0
+        while not priorityQueue:isEmpty() and tryNum < batchSize do
+            --- @type TransportChain
+            local transportChain = priorityQueue:pop().val
+            if tryNum == 0 then
+                player.create_local_flying_text { text = "path test", position = transportChain.pathUnit.position, time_to_live = 15 }
+            end
+            if startingEntity:canConnect(transportChain.pathUnit) then
+                transportChain:placeAllEntities(self.placeEntityFunc)
+                logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
+                foundPath = true
+            end
+            for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)) do
+                local newChain = TransportChain.new(pathUnit, transportChain)
+                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
+            end
+            tryNum = tryNum + 1
         end
-        for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)) do
-            local newChain = TransportChain.new(pathUnit, transportChain)
-            priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
+        totalTryNum = totalTryNum + tryNum
+        if not foundPath and not priorityQueue:isEmpty() and totalTryNum < maxTryNum then
+            asyncTaskManager:pushTask(tryFindPath, taskPriority)
+        else
+            if priorityQueue:isEmpty() then
+                self:debug_visited_position(minDistanceDict)
+                reportToPlayer("Path finding terminated, there is probably no path between the two entity")
+            elseif totalTryNum >= maxTryNum then
+                self:debug_visited_position(minDistanceDict)
+                reportToPlayer("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
+            end
         end
-        tryNum = tryNum + 1
     end
-    if priorityQueue:isEmpty() then
-        self:debug_visited_position(minDistanceDict)
-        return "Path finding terminated, there is probably no path between the two entity"
-    else
-        self:debug_visited_position(minDistanceDict)
-        return "Failed to connect transport line within " .. tostring(maxTryNum) .. " trials"
-    end
-    return
+    asyncTaskManager:pushTask(tryFindPath, taskPriority)
 end
 
 --- @param transportChain TransportChain
@@ -293,7 +316,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 local neighborType = TransportLineType.getType(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
                     if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position))
+                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
                     end
                 end
@@ -305,7 +328,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
                     if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
                         if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position))
+                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false
                         end
                     end
@@ -327,7 +350,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                             ))
                     and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
             then
-                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction))
+                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction), "placing")
                 return false
             end
         end

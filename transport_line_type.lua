@@ -7,6 +7,10 @@
 --- @type Logger
 local logging = require("__MiscLib__/logging")
 
+local function log(message)
+    logging.log(message, "transportType")
+end
+
 --- @class TransportLineType
 --- @field lineType 'TransportLineType.itemLine'|'TransportLineType.fluidLine'
 --- @field beltType nil|'TransportLineType.normalBelt'|'TransportLineType.splitterBelt'|'TransportLineType.undergroundBelt'
@@ -82,7 +86,7 @@ function TransportLineGroup.getLineGroup(entity_name)
                 end
             end
         end
-        logging.log("Found mod belt group: " .. beltVersion.name .. ", " .. undergroundVersion.name .. ", " .. splitterVersion.name)
+        log("Found mod belt group: " .. beltVersion.name .. ", " .. undergroundVersion.name .. ", " .. splitterVersion.name)
         TransportLineGroup.add(beltVersion.name, undergroundVersion.name, splitterVersion.name)
         return {
             [TransportLineType.normalBelt] = beltVersion,
@@ -90,7 +94,7 @@ function TransportLineGroup.getLineGroup(entity_name)
             [TransportLineType.splitterBelt] = splitterVersion,
         }
     end
-    logging.log("failed to find line group of " .. entity_name)
+    log("failed to find line group of " .. entity_name)
     return nil
 end
 
@@ -101,7 +105,7 @@ function TransportLineType.getType(entity_name)
 
     local prototype = game.entity_prototypes[entity_name]
     if not prototype then
-        logging.log("prototype " .. entity_name .. " is not an entity prototype")
+        log("prototype " .. entity_name .. " is not an entity prototype")
         return nil
     end
     --- @type TransportLineType
@@ -112,7 +116,7 @@ function TransportLineType.getType(entity_name)
         type.lineType = TransportLineType.itemLine
     end
     if not type.lineType then
-        logging.log("prototype " .. entity_name .. " is neither a belt nor a pipe")
+        log("prototype " .. entity_name .. " is neither a belt nor a pipe")
         return nil
     end
     if type.lineType == TransportLineType.itemLine then
@@ -125,7 +129,7 @@ function TransportLineType.getType(entity_name)
         end
     end
     type.groundType = prototype.max_underground_distance and TransportLineType.underGround or TransportLineType.onGround
-    logging.log("type of " .. entity_name .. " is " .. serpent.line(type))
+    log("type of " .. entity_name .. " is " .. serpent.line(type))
     return type
 end
 
