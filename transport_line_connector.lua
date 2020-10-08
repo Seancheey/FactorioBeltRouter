@@ -314,7 +314,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 local neighborType = TransportLineType.getType(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
                     if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position))
+                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
                     end
                 end
@@ -326,7 +326,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
                     if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
                         if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position))
+                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position),"placing")
                             return false
                         end
                     end
@@ -348,7 +348,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                             ))
                     and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
             then
-                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction))
+                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction),"placing")
                 return false
             end
         end

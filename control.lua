@@ -22,7 +22,9 @@ local TransportLineType = require("transport_line_type")
 local Vector2D = require("__MiscLib__/vector2d")
 --- @type table<string, boolean>
 local loggingCategories = {
-    reward = false
+    reward = false,
+    placing = false,
+    transportType = false
 }
 --- @type AsyncTaskManager
 local AsyncTaskManager = require("__MiscLib__/async_task")
