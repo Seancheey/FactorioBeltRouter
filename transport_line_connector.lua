@@ -243,7 +243,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     -- A* algorithm starts from endingEntity so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingEntity))
     local maxTryNum = 20000
-    local batchSize = 50
+    local batchSize = 10
     local totalTryNum = 0
     local taskPriority = game.tick
     local function tryFindPath()
@@ -277,7 +277,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             end
         end
     end
-    tryFindPath()
+    asyncTaskManager:pushTask(tryFindPath, taskPriority)
 end
 
 --- @param transportChain TransportChain

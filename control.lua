@@ -30,7 +30,7 @@ local loggingCategories = {
 local AsyncTaskManager = require("__MiscLib__/async_task")
 
 local taskManager = AsyncTaskManager:new()
-taskManager:resolveTaskEveryNthTick(10)
+taskManager:resolveTaskEveryNthTick(1)
 
 for category, enable in pairs(loggingCategories) do
     logging.addCategory(category, releaseMode and false or enable)
