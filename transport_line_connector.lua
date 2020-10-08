@@ -252,7 +252,9 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         while not priorityQueue:isEmpty() and tryNum < batchSize do
             --- @type TransportChain
             local transportChain = priorityQueue:pop().val
-
+            if tryNum == 0 then
+                player.create_local_flying_text { text = "path test", position = transportChain.pathUnit.position, time_to_live = 15 }
+            end
             if startingEntity:canConnect(transportChain.pathUnit) then
                 transportChain:placeAllEntities(self.placeEntityFunc)
                 logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
@@ -273,7 +275,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 reportToPlayer("Path finding terminated, there is probably no path between the two entity")
             elseif totalTryNum >= maxTryNum then
                 self:debug_visited_position(minDistanceDict)
-                reportToPlayer("Failed to connect transport line within " .. tostring(tryNum) .. " trials")
+                reportToPlayer("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
             end
         end
     end
@@ -326,7 +328,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
                     if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
                         if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position),"placing")
+                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false
                         end
                     end
@@ -348,7 +350,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                             ))
                     and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
             then
-                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction),"placing")
+                logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction), "placing")
                 return false
             end
         end
