@@ -201,10 +201,13 @@ function PathUnit:__eq(other)
     return self.name == other.name and self.direction == other.direction and self.position == other.position and self.distance == other.distance and self.type == other.type
 end
 
+--- only tests position and direction but doesn't care about if their TransportLineGroup are the same
+--- @param other PathUnit
+--- @return boolean
 function PathUnit:canConnect(other)
     local attribute = TransportLineType.getType(self.name)
     for _, testUnit in ipairs(other:possiblePrevPathUnits()) do
-        if self.position == testUnit.position and TransportLineType.onGroundVersionOf(self.name).name == TransportLineType.onGroundVersionOf(testUnit.name).name then
+        if self.position == testUnit.position then
             if attribute.lineType == TransportLineType.fluidLine and attribute.groundType == TransportLineType.onGround then
                 -- pipe is not direction dependent, so we don't test for its direction
                 return true

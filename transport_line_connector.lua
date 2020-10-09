@@ -15,28 +15,12 @@ local ArrayList = require("__MiscLib__/array_list")
 local MinHeap = require("__MiscLib__/minheap")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
---- @type PrototypeInfo
-local PrototypeInfo = require("prototype_info")
 local release_mode = require("release")
 --- @type TransportLineType
 local TransportLineType = require("transport_line_type")
 --- @type PathUnit
 local PathUnit = require("path_unit")
 local DirectionHelper = {}
-
---- @param entity LuaEntity
---- @return Vector2D
-function DirectionHelper.sourcePositionOf(entity)
-    return DirectionHelper.sourcePosition(entity.position, entity.direction)
-end
-
---- @param position Vector2D
---- @param direction defines.direction
---- @return Vector2D
-function DirectionHelper.sourcePosition(position, direction)
-    assert(position and direction)
-    return Vector2D.fromPosition(position) + Vector2D.fromDirection(direction or defines.direction.north):reverse()
-end
 
 --- @param entity LuaEntity
 --- @return Vector2D
@@ -63,27 +47,6 @@ function DirectionHelper.neighboringEntities(position, getEntityFunc)
         end
     end
     return entities
-end
-
---- @param entity LuaEntity
---- @return LuaEntity[]|ArrayList entity with only direction and position
-function DirectionHelper.legalSourcesOf(entity)
-    assert(entity)
-    local legalSources = ArrayList.new()
-    -- TODO handle pipe situation
-    if PrototypeInfo.is_underground_transport(entity.name) then
-        -- underground belt's input only allows one direction
-        legalSources:add { position = DirectionHelper.sourcePositionOf(entity), direction = entity.direction }
-    else
-        -- normal belts allows 3 directions
-        local banDirection = Vector2D.fromDirection(entity.direction):reverse():toDirection()
-        for _, direction in ipairs { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west } do
-            if direction ~= banDirection then
-                legalSources:add { position = DirectionHelper.sourcePosition(entity.position, direction), direction = (direction + 4) % 8 }
-            end
-        end
-    end
-    return legalSources
 end
 
 --- Transport chain is an intermediate generated backward linked list that represents a whole transport line.
@@ -223,8 +186,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         reportToPlayer("Can't find this entity's associated transport line type")
         return
     end
-    startingEntity = PathUnit:fromLuaEntity(startingEntity)
-    endingEntity = PathUnit:fromLuaEntity(endingEntity, true)
+    local startingUnit = PathUnit:fromLuaEntity(startingEntity)
+    local endingUnit = PathUnit:fromLuaEntity(endingEntity, true)
 
     local allowUnderground = true
     if additionalConfig and additionalConfig.allowUnderground ~= nil then
@@ -236,13 +199,13 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
 
     -- Here starts the main logic of function
 
-    local startingEntityTargetPos = TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingEntity) or startingEntity.position
-    if not self.canPlaceEntityFunc(startingEntityTargetPos) and TransportLineType.getType(startingEntity.name).lineType == TransportLineType.itemLine then
+    local startingEntityTargetPos = TransportLineType.getType(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
+    if not self.canPlaceEntityFunc(startingEntityTargetPos) and TransportLineType.getType(startingUnit.name).lineType == TransportLineType.itemLine then
         logging.log("starting entity's target position is blocked")
         return
     end
-    -- A* algorithm starts from endingEntity so that we don't have to consider/change last belt's direction
-    priorityQueue:push(0, TransportChain.new(endingEntity))
+    -- A* algorithm starts from endingUnit so that we don't have to consider/change last belt's direction
+    priorityQueue:push(0, TransportChain.new(endingUnit))
     local maxTryNum = settings.get_player_settings(player)["max-path-finding-explore-num"].value
     local batchSize = settings.get_player_settings(player)["path-finding-test-per-tick"].value
     local totalTryNum = 0
@@ -256,14 +219,14 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             if tryNum == 0 then
                 player.create_local_flying_text { text = "path test", position = transportChain.pathUnit.position, time_to_live = 15 }
             end
-            if startingEntity:canConnect(transportChain.pathUnit) then
+            if startingUnit:canConnect(transportChain.pathUnit) then
                 transportChain:placeAllEntities(self.placeEntityFunc)
                 logging.log("Path find algorithm explored " .. tostring(totalTryNum + tryNum) .. " blocks to find solution")
                 foundPath = true
             end
-            for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)) do
+            for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit)) do
                 local newChain = TransportChain.new(pathUnit, transportChain)
-                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingEntity.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
+                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingUnit.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
         end
