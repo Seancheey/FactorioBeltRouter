@@ -257,7 +257,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             end
             if startingEntity:canConnect(transportChain.pathUnit) then
                 transportChain:placeAllEntities(self.placeEntityFunc)
-                logging.log("Path find algorithm explored " .. tostring(tryNum) .. " blocks to find solution")
+                logging.log("Path find algorithm explored " .. tostring(totalTryNum + tryNum) .. " blocks to find solution")
                 foundPath = true
             end
             for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)) do
@@ -291,7 +291,7 @@ function TransportLineConnector:surroundingCandidates(transportChain, minDistanc
 
     local legalCandidates = ArrayList.new()
     for _, pathUnit in ipairs(candidates) do
-        if self:testCanPlace(pathUnit, transportChain.cumulativeDistance + pathUnit.distance, minDistanceDict, startingEntity) then
+        if self:testCanPlace(pathUnit, transportChain.cumulativeDistance + pathUnit.distance, minDistanceDict, startingEntity, transportChain) then
             legalCandidates:add(pathUnit)
         end
     end
@@ -302,40 +302,11 @@ end
 --- @param cumulativeDistance number
 --- @param minDistanceDict MinDistanceDict
 --- @param startingEntity LuaEntitySpec
-function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDistanceDict, startingEntity)
-    assertNotNull(self, pathUnit, cumulativeDistance, minDistanceDict, startingEntity)
+--- @param transportChain TransportChain
+function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
+    assertNotNull(self, pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
 
     local entityType = TransportLineType.getType(pathUnit.name)
-    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
-        if not self.canPlaceEntityFunc(entity.position) then
-            return false
-        end
-        if entityType.lineType == TransportLineType.itemLine then
-            -- Check neighbor belts, make sure they don't face our path
-            for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
-                local neighborType = TransportLineType.getType(neighbor.name)
-                if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                    if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
-                        return false
-                    end
-                end
-            end
-        elseif (entityType.lineType == TransportLineType.fluidLine and entityType.groundType == TransportLineType.onGround) then
-            -- Check neighbor pipes, make sure pipe are not our neighbor and underground pipe doesn't face our path
-            for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
-                local neighborType = TransportLineType.getType(neighbor.name)
-                if neighborType and neighborType.lineType == TransportLineType.fluidLine then
-                    if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                        if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
-                            return false
-                        end
-                    end
-                end
-            end
-        end
-    end
 
     if entityType.groundType == TransportLineType.underGround then
         -- make sure there is no interfering underground belts whose direction is parallel to our underground belt pair
@@ -355,6 +326,42 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
             end
         end
     end
+
+    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
+        if not self.canPlaceEntityFunc(entity.position) then
+            return false
+        end
+        if entityType.lineType == TransportLineType.itemLine then
+            -- Check neighbor belts, make sure they don't face our path
+            for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
+                local neighborType = TransportLineType.getType(neighbor.name)
+                if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                    if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                        logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
+                        return false
+                    else
+                        return true
+                    end
+                end
+            end
+        elseif (entityType.lineType == TransportLineType.fluidLine and entityType.groundType == TransportLineType.onGround) then
+            -- Check neighbor pipes, make sure pipe are not our neighbor and underground pipe doesn't face our path
+            for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
+                local neighborType = TransportLineType.getType(neighbor.name)
+                if neighborType and neighborType.lineType == TransportLineType.fluidLine then
+                    if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                        if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
+                            return false
+                        else
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
 
     -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
     local distanceSmallerThanAny = false
