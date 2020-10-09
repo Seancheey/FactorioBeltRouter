@@ -250,7 +250,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local function tryFindPath()
         local foundPath = false
         local tryNum = 0
-        while not priorityQueue:isEmpty() and tryNum < batchSize do
+        while not priorityQueue:isEmpty() and tryNum < batchSize and not foundPath do
             --- @type TransportChain
             local transportChain = priorityQueue:pop().val
             if tryNum == 0 then
@@ -268,16 +268,14 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             tryNum = tryNum + 1
         end
         totalTryNum = totalTryNum + tryNum
-        if not foundPath and not priorityQueue:isEmpty() and totalTryNum < maxTryNum then
+        if priorityQueue:isEmpty() then
+            self:debug_visited_position(minDistanceDict)
+            reportToPlayer("Path finding terminated, there is probably no path between the two entity")
+        elseif totalTryNum >= maxTryNum then
+            self:debug_visited_position(minDistanceDict)
+            reportToPlayer("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
+        elseif not foundPath then
             asyncTaskManager:pushTask(tryFindPath, taskPriority)
-        else
-            if priorityQueue:isEmpty() then
-                self:debug_visited_position(minDistanceDict)
-                reportToPlayer("Path finding terminated, there is probably no path between the two entity")
-            elseif totalTryNum >= maxTryNum then
-                self:debug_visited_position(minDistanceDict)
-                reportToPlayer("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
-            end
         end
     end
     asyncTaskManager:pushTask(tryFindPath, taskPriority)
@@ -366,10 +364,10 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
 
     -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
     local distanceSmallerThanAny = false
-    for _, sourceEntity in ipairs(DirectionHelper.legalSourcesOf(pathUnit)) do
-        local curMinDistance = minDistanceDict:get(sourceEntity.position, sourceEntity.direction)
+    for _, sourceUnit in ipairs(pathUnit:possiblePrevPathUnits(false)) do
+        local curMinDistance = minDistanceDict:get(sourceUnit.position, sourceUnit.direction)
         if curMinDistance == nil or curMinDistance > cumulativeDistance then
-            minDistanceDict:put(sourceEntity.position, sourceEntity.direction, cumulativeDistance)
+            minDistanceDict:put(sourceUnit.position, sourceUnit.direction, cumulativeDistance)
             distanceSmallerThanAny = true
         end
     end
