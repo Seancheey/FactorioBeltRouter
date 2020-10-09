@@ -139,6 +139,7 @@ local function setEndingTransportLine(event, config)
     end
 end
 
+--- @param config LineConnectConfig
 local function buildTransportLineWithConfig(config)
     return function(event)
         setEndingTransportLine(event, config)
@@ -146,5 +147,6 @@ local function buildTransportLineWithConfig(config)
 end
 
 script.on_event("select-line-starting-point", setStartingTransportLine)
-script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true })
+script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = false })
 script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false })
+script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })

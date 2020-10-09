@@ -16,6 +16,11 @@ data:extend {
     },
     {
         type = "custom-input",
+        name = "build-transport-line-prefer-ground",
+        key_sequence = "SHIFT + ALT + mouse-button-1"
+    },
+    {
+        type = "custom-input",
         name = "select-line-starting-point",
         key_sequence = "SHIFT + mouse-button-2"
     }
