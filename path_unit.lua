@@ -202,9 +202,9 @@ function PathUnit:__eq(other)
 end
 
 function PathUnit:canConnect(other)
+    local attribute = TransportLineType.getType(self.name)
     for _, testUnit in ipairs(other:possiblePrevPathUnits()) do
-        if self.position == testUnit.position and TransportLineType.onGroundVersionOf(self.name).name == TransportLineType.onGroundVersionOf(other.name).name then
-            local attribute = TransportLineType.getType(self.name)
+        if self.position == testUnit.position and TransportLineType.onGroundVersionOf(self.name).name == TransportLineType.onGroundVersionOf(testUnit.name).name then
             if attribute.lineType == TransportLineType.fluidLine and attribute.groundType == TransportLineType.onGround then
                 -- pipe is not direction dependent, so we don't test for its direction
                 return true

@@ -60,7 +60,19 @@ function TransportLineGroup.tryLoadAllGroups()
     TransportLineGroup.add("pipe", "pipe-to-ground")
 end
 
+--- Mod transport line mapping support. For mod belts, usually the function can automatically figure out the group.
+--- @type table<string, string>
+local specialTransportLineGroupMapping = {
+    ["factory-input-pipe"] = "pipe",
+    ["factory-output-pipe"] = "pipe"
+}
+
+--- @param entity_name string
 function TransportLineGroup.getLineGroup(entity_name)
+    if specialTransportLineGroupMapping[entity_name] then
+        log("Mapped special item " .. entity_name .. "'s type to " .. specialTransportLineGroupMapping[entity_name])
+        entity_name = specialTransportLineGroupMapping[entity_name]
+    end
     for _, dict in ipairs { TransportLineGroup.normalGroupDict, TransportLineGroup.undergroundGroupDict, TransportLineGroup.splitterGroupDict } do
         if dict[entity_name] then
             return dict[entity_name]
@@ -93,6 +105,15 @@ function TransportLineGroup.getLineGroup(entity_name)
             [TransportLineType.undergroundBelt] = undergroundVersion,
             [TransportLineType.splitterBelt] = splitterVersion,
         }
+    elseif TransportLineType.getType(entity_name).lineType == TransportLineType.fluidLine then
+        if TransportLineType.getType(entity_name).groundType == TransportLineType.onGround then
+            -- TODO should find a way of associate fluid pipe's group
+            return {
+                [TransportLineType.normalBelt] = game.entity_prototypes[entity_name],
+                [TransportLineType.undergroundBelt] = game.entity_prototypes["pipe-to-ground"],
+            }
+        end
+        -- By default, assume on ground is pipe, underground is pipe-to-ground
     end
     log("failed to find line group of " .. entity_name)
     return nil

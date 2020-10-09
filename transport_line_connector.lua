@@ -219,8 +219,9 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         return
     end
     local onGroundVersion = TransportLineType.onGroundVersionOf(startingEntity.name)
-    if not onGroundVersion then
-        reportToPlayer("Can't find an above-ground version of this entity")
+    if onGroundVersion == nil then
+        reportToPlayer("Can't find this entity's associated transport line type")
+        return
     end
     startingEntity = PathUnit:fromLuaEntity(startingEntity)
     endingEntity = PathUnit:fromLuaEntity(endingEntity, true)
