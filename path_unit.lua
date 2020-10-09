@@ -104,6 +104,7 @@ function PathUnit:toEntitySpecs()
     end
 end
 
+--- @param allowUnderground boolean default false
 --- @return PathUnit[]
 function PathUnit:possibleNextPathUnits(allowUnderground)
     local attribute = TransportLineType.getType(self.name)
@@ -147,6 +148,7 @@ function PathUnit:possibleNextPathUnits(allowUnderground)
     return candidates
 end
 
+--- @param allowUnderground boolean
 --- @return PathUnit[]
 function PathUnit:possiblePrevPathUnits(allowUnderground)
     local undergroundPrototype = TransportLineType.undergroundVersionOf(self.name)
