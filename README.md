@@ -2,11 +2,11 @@
 
 BeltRouter helps you path find belt routes from starting point (shift + right click) to ending point (shift + left click/shift + ctrl + left click) and creates a trail of belt ghosts.
 
-![](demo/Screen Shot 2020-10-02 at 1.43.44 AM.png)
+![](demo/Tutorial_clickStart.png)
 
-![](demo/Screen Shot 2020-10-02 at 1.43.54 AM.png)
+![](demo/Tutorial_clickEnd.png)
 
-![](demo/Screen Shot 2020-10-02 at 1.44.06 AM.png)
+![](demo/Tutorial_defaultResult.png)
 
 ## Key bindings
 
