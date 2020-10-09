@@ -60,13 +60,18 @@ local TransportChain = {}
 
 --- @param pathUnit PathUnit
 --- @param prevChain TransportChain
+--- @param preferOnGround boolean if enabled, will apply A* distance punishment to underground belts
 --- @return TransportChain
-function TransportChain.new(pathUnit, prevChain)
+function TransportChain.new(pathUnit, prevChain, preferOnGround)
     assertNotNull(pathUnit)
+    local unitDistance = pathUnit.distance
+    if unitDistance > 1 and preferOnGround then
+        unitDistance = 2 * unitDistance
+    end
     return setmetatable({
         pathUnit = pathUnit,
         prevChain = prevChain,
-        cumulativeDistance = prevChain and (prevChain.cumulativeDistance + pathUnit.distance) or 0,
+        cumulativeDistance = prevChain and (prevChain.cumulativeDistance + unitDistance) or 0,
     }, { __index = TransportChain })
 end
 
@@ -159,7 +164,7 @@ end
 
 --- @class LineConnectConfig
 --- @field allowUnderground boolean default true
---- @field preferHorizontal boolean default true
+--- @field preferOnGround boolean default true
 
 --- @param startingEntity LuaEntity
 --- @param endingEntity LuaEntity
@@ -193,7 +198,10 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     if additionalConfig and additionalConfig.allowUnderground ~= nil then
         allowUnderground = additionalConfig.allowUnderground
     end
-    local preferHorizontal = (additionalConfig and (additionalConfig.preferHorizontal ~= nil)) and additionalConfig.preferHorizontal or true
+    local preferOnGround = false
+    if additionalConfig and additionalConfig.preferOnGround ~= nil then
+        preferOnGround = additionalConfig.preferOnGround
+    end
     local minDistanceDict = MinDistanceDict.new()
     local priorityQueue = MinHeap.new()
 
@@ -225,8 +233,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 foundPath = true
             end
             for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit)) do
-                local newChain = TransportChain.new(pathUnit, transportChain)
-                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingUnit.direction, preferHorizontal, not preferHorizontal) + newChain.cumulativeDistance, newChain)
+                local newChain = TransportChain.new(pathUnit, transportChain, preferOnGround)
+                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
         end
@@ -293,6 +301,9 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
         if not self.canPlaceEntityFunc(entity.position) then
             return false
         end
+    end
+    local closeToFinal = false
+    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
         if entityType.lineType == TransportLineType.itemLine then
             -- Check neighbor belts, make sure they don't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
@@ -302,7 +313,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                         logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
                     else
-                        return true
+                        closeToFinal = true
                     end
                 end
             end
@@ -316,7 +327,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                             logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false
                         else
-                            return true
+                            closeToFinal = true
                         end
                     end
                 end
@@ -324,28 +335,31 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
         end
     end
 
-
-    -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
-    local distanceSmallerThanAny = false
-    for _, sourceUnit in ipairs(pathUnit:possiblePrevPathUnits(false)) do
-        local curMinDistance = minDistanceDict:get(sourceUnit.position, sourceUnit.direction)
-        if curMinDistance == nil or curMinDistance > cumulativeDistance then
-            minDistanceDict:put(sourceUnit.position, sourceUnit.direction, cumulativeDistance)
-            distanceSmallerThanAny = true
+    if closeToFinal then
+        return true
+    else
+        -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
+        local distanceSmallerThanAny = false
+        for _, sourceUnit in ipairs(pathUnit:possiblePrevPathUnits(false)) do
+            local curMinDistance = minDistanceDict:get(sourceUnit.position, sourceUnit.direction)
+            if curMinDistance == nil or curMinDistance > cumulativeDistance then
+                minDistanceDict:put(sourceUnit.position, sourceUnit.direction, cumulativeDistance)
+                distanceSmallerThanAny = true
+            end
         end
+        return distanceSmallerThanAny
     end
-    return distanceSmallerThanAny
 end
 
 --- A* algorithm's heuristics cost
 --- @param testEntity LuaEntity
 --- @param targetPos Vector2D
 --- @param rewardDirection defines.direction
-function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDirection, rewardHorizontalFirst, rewardVerticalFirst)
+function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDirection)
     local dx = math.abs(testEntity.position.x - targetPos.x)
     local dy = math.abs(testEntity.position.y - targetPos.y)
     -- break A* cost tie by rewarding going to same x/y-level, but reward is no more than 1
-    local positionReward = (rewardHorizontalFirst and (1 / (dy + 1)) or 0) + (rewardVerticalFirst and (1 / (dx + 1)) or 0)
+    local positionReward = 1 / (dy + 1)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
     local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
