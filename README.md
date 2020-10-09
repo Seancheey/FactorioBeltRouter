@@ -2,15 +2,22 @@
 
 BeltRouter helps you path find belt routes from starting point (shift + right click) to ending point (shift + left click/shift + ctrl + left click) and creates a trail of belt ghosts.
 
+![](demo/Screen Shot 2020-10-02 at 1.43.44 AM.png)
+![](demo/Screen Shot 2020-10-02 at 1.43.54 AM.png)
+![](demo/Screen Shot 2020-10-02 at 1.44.06 AM.png)
+
 ## Key bindings
 
 * "shift + right click" on starting belt to mark as transport line's starting point
 
 * "shift + left click" on ending belt will allow path finder to put underground belts
+  ![](demo/ModeDemo_defaultMode.png)
 
 * "shift + ctrl + left click" on ending belt will only allow above ground belts to exists
+  ![](demo/ModeDemo_noUnderground.png)
 
 * "shift + alt + left click" on ending belt will only use underground belt if necessary (= if underground can save enough distance)
+  ![](demo/ModeDemo_preferGround.png)
 
 Above key bindings can always be changed via *Settings -> Controls -> Mods -> Belt Router*
 
