@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.0
+Date: 2020.10.09
+  Bugfixes:
+    - Fix a bug that makes extreme short path get path-found twice
+    - Fix a bug that disables different tiers of belts from connecting
+    - Fix a bug that may cause connectable path unreachable
+  Features:
+    - Added a new line building mode: Prefer-on-ground mode, triggered by shift + alt + left click
+
+---------------------------------------------------------------------------------------------------
 Version: 0.5.0
 Date: 2020.10.08
   Optimisations:
