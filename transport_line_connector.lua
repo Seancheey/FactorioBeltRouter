@@ -98,10 +98,11 @@ end
 --- @type MinDistanceDict
 local MinDistanceDict = {}
 MinDistanceDict.__directionNum = 8
+MinDistanceDict.__index = MinDistanceDict
 
 --- @return MinDistanceDict
 function MinDistanceDict.new()
-    return setmetatable({}, { __index = MinDistanceDict })
+    return setmetatable({}, MinDistanceDict)
 end
 
 function MinDistanceDict.__marshalize(vector, direction)
@@ -196,14 +197,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local startingUnit = PathUnit:fromLuaEntity(startingEntity)
     local endingUnit = PathUnit:fromLuaEntity(endingEntity, true)
 
-    local allowUnderground = true
-    if additionalConfig and additionalConfig.allowUnderground ~= nil then
-        allowUnderground = additionalConfig.allowUnderground
-    end
-    local preferOnGround = false
-    if additionalConfig and additionalConfig.preferOnGround ~= nil then
-        preferOnGround = additionalConfig.preferOnGround
-    end
+    local allowUnderground, preferOnGround = self:parseConfig(additionalConfig)
     local minDistanceDict = MinDistanceDict.new()
     local priorityQueue = MinHeap.new()
 
@@ -389,6 +383,22 @@ function TransportLineConnector:debug_visited_position(minDistanceDict)
             game.players[1].create_local_flying_text { text = text, position = vector, time_to_live = 100000, speed = 0.000001 }
         end
     end
+end
+
+--- @param additionalConfig LineConnectConfig nullable
+--- @return boolean, boolean allowUnderground, preferOnGround
+function TransportLineConnector:parseConfig(additionalConfig)
+    local allowUnderground = true
+    local preferOnGround = false
+    if additionalConfig then
+        if additionalConfig.allowUnderground ~= nil then
+            allowUnderground = additionalConfig.allowUnderground
+        end
+        if additionalConfig.preferOnGround ~= nil then
+            preferOnGround = additionalConfig.preferOnGround
+        end
+    end
+    return allowUnderground, preferOnGround
 end
 
 return TransportLineConnector
