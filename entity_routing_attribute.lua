@@ -11,7 +11,6 @@ local EntityTransportType = require("enum/entity_transport_type")
 --- @type TransportLineType
 local TransportLineType = require("enum/line_type")
 
-
 local function log(message)
     logging.log(message, "transportType")
 end
@@ -56,8 +55,6 @@ local specialTransportLineGroupMapping = {
     ["factory-output-pipe"] = "pipe"
 }
 
-
-
 --- @class EntityRoutingAttribute
 --- @field lineType TransportLineType string
 --- @field beltType EntityTransportType string
@@ -67,7 +64,6 @@ local specialTransportLineGroupMapping = {
 --- @field undergroundEntityPrototype LuaEntityPrototype
 --- @type EntityRoutingAttribute
 local EntityRoutingAttribute = {}
-
 
 --- @param k string
 function EntityRoutingAttribute.__index(t, k)
@@ -94,7 +90,7 @@ function EntityRoutingAttribute.from(entity_name)
         return nil
     end
     --- @type EntityRoutingAttribute
-    local type = {entityName = entity_name}
+    local type = { entityName = entity_name }
     if prototype.fluid_capacity > 0 then
         type.lineType = TransportLineType.fluidLine
     elseif prototype.belt_speed ~= nil then
@@ -117,6 +113,22 @@ function EntityRoutingAttribute.from(entity_name)
     setmetatable(type, EntityRoutingAttribute)
     log("type of " .. entity_name .. " is " .. serpent.line(type))
     return type
+end
+
+function EntityRoutingAttribute:isOnGroundPipe()
+    return not self.isUnderground and self.lineType == TransportLineType.fluidLine
+end
+
+function EntityRoutingAttribute:isOnGroundBelt()
+    return not self.isUnderground and self.lineType == TransportLineType.itemLine
+end
+
+function EntityRoutingAttribute:isUndergroundPipe()
+    return self.isUnderground and self.lineType == TransportLineType.fluidLine
+end
+
+function EntityRoutingAttribute:isUndergroundBelt()
+    return self.isUnderground and self.lineType == TransportLineType.itemLine
 end
 
 function EntityRoutingAttribute:nextPossibleDisplacements(direction)
