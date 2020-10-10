@@ -313,7 +313,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                     end
                 end
             end
-        elseif (attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false) then
+        elseif attribute:isOnGroundPipe() then
             -- Check neighbor pipes, make sure pipe are not our neighbor and underground pipe doesn't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)

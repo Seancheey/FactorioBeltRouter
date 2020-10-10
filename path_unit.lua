@@ -11,10 +11,10 @@ local Vector2D = require("__MiscLib__/vector2d")
 local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type ArrayList
 local ArrayList = require("__MiscLib__/array_list")
---- @type EntityTransportType
-local EntityTransportType = require("enum/entity_transport_type")
 --- @type TransportLineType
 local TransportLineType = require("enum/line_type")
+--- @type DirectionHelper
+local DirectionHelper = require("__MiscLib__/direction_helper")
 
 --- @class LuaEntitySpec
 --- @field name string
@@ -34,14 +34,7 @@ local TransportLineType = require("enum/line_type")
 local PathUnit = {}
 
 --- @return defines.direction
-local function reverseDirection(direction)
-    return (direction + 4) % 8
-end
-
---- @return defines.direction[]
-local function frontLeftRightOf(direction)
-    return { direction, (direction + 2) % 8, (direction + 6) % 8 }
-end
+local reverseDirection = DirectionHelper.reverseOf
 
 --- @param entity LuaEntity
 --- @param halfUndergroundPipeAsInput boolean since we cannot decide if a single underground pipe is input or output, by default we consider it as output
@@ -118,14 +111,7 @@ function PathUnit:possibleNextPathUnits(allowUnderground)
     local endingPosition = (self.distance == 1) and self.position or (self.position + directionVector:scale(self.distance - 1))
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
-    local posDiffDirections
-    if attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false then
-        -- on ground pipe allow 4-way direction
-        posDiffDirections = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
-    else
-        -- all other only allow 1 direction
-        posDiffDirections = { self.direction }
-    end
+    local posDiffDirections = attribute:nextPossibleDisplacements(self.direction)
 
     for _, posDiffDirection in ipairs(posDiffDirections) do
         local posDiffVector = Vector2D.fromDirection(posDiffDirection)
@@ -161,24 +147,7 @@ function PathUnit:possiblePrevPathUnits(allowUnderground)
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
     --- @type defines.direction[]
-    local posDiffDirections
-    if attribute.lineType == TransportLineType.itemLine then
-        if attribute.beltType == EntityTransportType.underground or attribute.beltType == EntityTransportType.splitter then
-            -- underground belt/splitter's input only allows one direction
-            posDiffDirections = { reverseDirection(self.direction) }
-        else
-            -- normal belt would allow 3 legal directions
-            posDiffDirections = frontLeftRightOf(reverseDirection(self.direction))
-        end
-    else
-        if attribute.isUnderground then
-            -- underground pipe's input only allows one direction
-            posDiffDirections = { reverseDirection(self.direction) }
-        else
-            -- normal pipe would allow 4 legal directions
-            posDiffDirections = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
-        end
-    end
+    local posDiffDirections = attribute:prevPossibleDisplacements(self.direction)
     for _, posDiffDirection in ipairs(posDiffDirections) do
         local posDiffVector = Vector2D.fromDirection(posDiffDirection)
         if allowUnderground then

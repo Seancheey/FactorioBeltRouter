@@ -10,6 +10,8 @@ local logging = require("__MiscLib__/logging")
 local EntityTransportType = require("enum/entity_transport_type")
 --- @type TransportLineType
 local TransportLineType = require("enum/line_type")
+--- @type DirectionHelper
+local DirectionHelper = require("__MiscLib__/direction_helper")
 
 local function log(message)
     logging.log(message, "transportType")
@@ -76,7 +78,7 @@ function EntityRoutingAttribute.__index(t, k)
     elseif k == "undergroundEntityPrototype" then
         return EntityRoutingAttribute.undergroundVersion(t)
     end
-    return t
+    return EntityRoutingAttribute[k]
 end
 
 --- @param entity_name string
@@ -131,16 +133,42 @@ function EntityRoutingAttribute:isUndergroundBelt()
     return self.isUnderground and self.lineType == TransportLineType.itemLine
 end
 
+--- @type table<fun(attribute: EntityRoutingAttribute):boolean, fun(direction: defines.direction):defines.direction[]>
+local nextDisplacements = {
+    isOnGroundPipe = DirectionHelper.listAllStraightDirectionOf,
+    isOnGroundBelt = DirectionHelper.listFrontOf,
+    isUndergroundPipe = DirectionHelper.listFrontOf,
+    isUndergroundBelt = DirectionHelper.listFrontOf
+}
+
+--- @type table<fun(attribute: EntityRoutingAttribute):boolean, fun(direction: defines.direction):defines.direction[]>
+local prevDisplacements = {
+    isOnGroundPipe = DirectionHelper.listAllStraightDirectionOf,
+    isOnGroundBelt = DirectionHelper.listTailLeftRightOf,
+    isUndergroundPipe = DirectionHelper.listReverseOf,
+    isUndergroundBelt = DirectionHelper.listReverseOf
+}
+
+--- @return defines.direction[]
 function EntityRoutingAttribute:nextPossibleDisplacements(direction)
+    for attributeCriteriaFunc, displacementFunc in pairs(nextDisplacements) do
+        if EntityRoutingAttribute[attributeCriteriaFunc](self) then
+            return displacementFunc(direction)
+        end
+    end
+    logging.log("Unable to find nextPossibleDisplacements of " .. self.entityName)
+    return direction
 end
 
-function EntityRoutingAttribute:nextPossibleDirections(selfDirection, displacement)
-end
-
+--- @return defines.direction[]
 function EntityRoutingAttribute:prevPossibleDisplacements(direction)
-end
-
-function EntityRoutingAttribute:prevPossibleDirections(selfDirection, displacement)
+    for attributeCriteriaFunc, displacementFunc in pairs(prevDisplacements) do
+        if EntityRoutingAttribute[attributeCriteriaFunc](self) then
+            return displacementFunc(direction)
+        end
+    end
+    logging.log("Unable to find prevPossibleDisplacements of " .. self.entityName)
+    return DirectionHelper.reverseOf(direction)
 end
 
 --- @return LuaEntityPrototype|nil
