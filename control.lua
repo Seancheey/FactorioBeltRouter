@@ -16,8 +16,8 @@ local logging = require("__MiscLib__/logging")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
 local releaseMode = require("release")
---- @type TransportLineType
-local TransportLineType = require("transport_line_type")
+--- @type EntityRoutingAttribute
+local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
 --- @type table<string, boolean>
@@ -63,9 +63,9 @@ local function setStartingTransportLine(event)
     if not selectedEntity then
         return
     end
-    local transportLineType = TransportLineType.getType(selectedEntity.prototype.name)
+    local transportLineType = EntityRoutingAttribute.from(selectedEntity.prototype.name)
     if transportLineType then
-        if transportLineType.beltType == TransportLineType.splitterBelt then
+        if transportLineType.beltType == EntityRoutingAttribute.splitterBelt then
             -- since splitter belt has 2-block width, we need to figure out which part is routable and smartly choose the routable belt
             local splitterPositions = ArrayList.new { Vector2D.new(0, 0), Vector2D.new(0, 0) }
             splitterPositions[1].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
@@ -96,7 +96,7 @@ local function setEndingTransportLine(event, config)
     if not selectedEntity then
         return
     end
-    if not TransportLineType.getType(selectedEntity.prototype.name) then
+    if not EntityRoutingAttribute.from(selectedEntity.prototype.name) then
         return
     end
     local startingEntity = popNewStartingPosition(event.player_index)
@@ -127,7 +127,7 @@ local function setEndingTransportLine(event, config)
     local function getEntity(position)
         for _, entity in pairs(surface.find_entities({ { position.x, position.y }, { position.x, position.y } })) do
             -- don't want player/other vehicles to be included
-            if TransportLineType.getType(entity.name) then
+            if EntityRoutingAttribute.from(entity.name) then
                 return entity
             end
         end

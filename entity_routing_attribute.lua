@@ -11,21 +11,22 @@ local function log(message)
     logging.log(message, "transportType")
 end
 
---- @class TransportLineType
+--- @class EntityRoutingAttribute
 --- @field lineType 'TransportLineType.itemLine'|'TransportLineType.fluidLine'
 --- @field beltType nil|'TransportLineType.normalBelt'|'TransportLineType.splitterBelt'|'TransportLineType.undergroundBelt'
 --- @field groundType 'TransportLineType.onGround'|'TransportLineType.underGround'
-local TransportLineType = {}
 
-TransportLineType.itemLine = "item"
-TransportLineType.fluidLine = "fluid"
+local EntityRoutingAttribute = {}
+EntityRoutingAttribute.__index = EntityRoutingAttribute
+EntityRoutingAttribute.itemLine = "item"
+EntityRoutingAttribute.fluidLine = "fluid"
 
-TransportLineType.normalBelt = "normal"
-TransportLineType.splitterBelt = "splitter"
-TransportLineType.undergroundBelt = "underground"
+EntityRoutingAttribute.normalBelt = "normal"
+EntityRoutingAttribute.splitterBelt = "splitter"
+EntityRoutingAttribute.undergroundBelt = "underground"
 
-TransportLineType.onGround = "onGround"
-TransportLineType.underGround = "underGround"
+EntityRoutingAttribute.onGround = "onGround"
+EntityRoutingAttribute.underGround = "underGround"
 
 --- @class TransportLineGroup
 --- @type TransportLineGroup
@@ -38,9 +39,9 @@ TransportLineGroup.loaded = false
 function TransportLineGroup.add(normal, underground, splitter)
     assert(normal and underground)
     local group = {
-        [TransportLineType.normalBelt] = game.entity_prototypes[normal],
-        [TransportLineType.undergroundBelt] = game.entity_prototypes[underground],
-        [TransportLineType.splitterBelt] = game.entity_prototypes[splitter],
+        [EntityRoutingAttribute.normalBelt] = game.entity_prototypes[normal],
+        [EntityRoutingAttribute.undergroundBelt] = game.entity_prototypes[underground],
+        [EntityRoutingAttribute.splitterBelt] = game.entity_prototypes[splitter],
     }
     TransportLineGroup.normalGroupDict[normal] = group
     TransportLineGroup.undergroundGroupDict[underground] = group
@@ -78,7 +79,7 @@ function TransportLineGroup.getLineGroup(entity_name)
             return dict[entity_name]
         end
     end
-    if TransportLineType.getType(entity_name).lineType == TransportLineType.itemLine then
+    if EntityRoutingAttribute.from(entity_name).lineType == EntityRoutingAttribute.itemLine then
         local groupBeltSpeed = game.entity_prototypes[entity_name].belt_speed
         assert(groupBeltSpeed, " item line is supposed to have belt speed, but \"" .. entity_name .. "\" doesn't?")
         local beltVersion, undergroundVersion, splitterVersion
@@ -101,16 +102,16 @@ function TransportLineGroup.getLineGroup(entity_name)
         log("Found mod belt group: " .. beltVersion.name .. ", " .. undergroundVersion.name .. ", " .. splitterVersion.name)
         TransportLineGroup.add(beltVersion.name, undergroundVersion.name, splitterVersion.name)
         return {
-            [TransportLineType.normalBelt] = beltVersion,
-            [TransportLineType.undergroundBelt] = undergroundVersion,
-            [TransportLineType.splitterBelt] = splitterVersion,
+            [EntityRoutingAttribute.normalBelt] = beltVersion,
+            [EntityRoutingAttribute.undergroundBelt] = undergroundVersion,
+            [EntityRoutingAttribute.splitterBelt] = splitterVersion,
         }
-    elseif TransportLineType.getType(entity_name).lineType == TransportLineType.fluidLine then
-        if TransportLineType.getType(entity_name).groundType == TransportLineType.onGround then
+    elseif EntityRoutingAttribute.from(entity_name).lineType == EntityRoutingAttribute.fluidLine then
+        if EntityRoutingAttribute.from(entity_name).groundType == EntityRoutingAttribute.onGround then
             -- TODO should find a way of associate fluid pipe's group
             return {
-                [TransportLineType.normalBelt] = game.entity_prototypes[entity_name],
-                [TransportLineType.undergroundBelt] = game.entity_prototypes["pipe-to-ground"],
+                [EntityRoutingAttribute.normalBelt] = game.entity_prototypes[entity_name],
+                [EntityRoutingAttribute.undergroundBelt] = game.entity_prototypes["pipe-to-ground"],
             }
         end
         -- By default, assume on ground is pipe, underground is pipe-to-ground
@@ -120,8 +121,8 @@ function TransportLineGroup.getLineGroup(entity_name)
 end
 
 --- @param entity_name string
---- @return TransportLineType|nil
-function TransportLineType.getType(entity_name)
+--- @return EntityRoutingAttribute|nil
+function EntityRoutingAttribute.from(entity_name)
     assert(entity_name)
 
     local prototype = game.entity_prototypes[entity_name]
@@ -129,56 +130,69 @@ function TransportLineType.getType(entity_name)
         log("prototype " .. entity_name .. " is not an entity prototype")
         return nil
     end
-    --- @type TransportLineType
+    --- @type EntityRoutingAttribute
     local type = {}
     if prototype.fluid_capacity > 0 then
-        type.lineType = TransportLineType.fluidLine
+        type.lineType = EntityRoutingAttribute.fluidLine
     elseif prototype.belt_speed ~= nil then
-        type.lineType = TransportLineType.itemLine
+        type.lineType = EntityRoutingAttribute.itemLine
     end
     if not type.lineType then
         log("prototype " .. entity_name .. " is neither a belt nor a pipe")
         return nil
     end
-    if type.lineType == TransportLineType.itemLine then
+    if type.lineType == EntityRoutingAttribute.itemLine then
         if prototype.max_underground_distance ~= nil then
-            type.beltType = TransportLineType.undergroundBelt
+            type.beltType = EntityRoutingAttribute.undergroundBelt
         elseif string.find(entity_name, "splitter") then
-            type.beltType = TransportLineType.splitterBelt
+            type.beltType = EntityRoutingAttribute.splitterBelt
         else
-            type.beltType = TransportLineType.normalBelt
+            type.beltType = EntityRoutingAttribute.normalBelt
         end
     end
-    type.groundType = prototype.max_underground_distance and TransportLineType.underGround or TransportLineType.onGround
+    type.groundType = prototype.max_underground_distance and EntityRoutingAttribute.underGround or EntityRoutingAttribute.onGround
+    setmetatable(type, EntityRoutingAttribute)
     log("type of " .. entity_name .. " is " .. serpent.line(type))
     return type
 end
 
+function EntityRoutingAttribute:nextPossibleDisplacements(direction)
+end
+
+function EntityRoutingAttribute:nextPossibleDirections(selfDirection, displacement)
+end
+
+function EntityRoutingAttribute:prevPossibleDisplacements(direction)
+end
+
+function EntityRoutingAttribute:prevPossibleDirections(selfDirection, displacement)
+end
+
 --- @return LuaEntityPrototype|nil
-function TransportLineType.onGroundVersionOf(entity_name)
+function EntityRoutingAttribute.onGroundVersionOf(entity_name)
     TransportLineGroup.tryLoadAllGroups()
     local lineGroup = TransportLineGroup.getLineGroup(entity_name)
     if lineGroup then
-        return lineGroup[TransportLineType.normalBelt]
+        return lineGroup[EntityRoutingAttribute.normalBelt]
     end
 end
 
 --- @return LuaEntityPrototype|nil
-function TransportLineType.splitterVersionOf(entity_name)
+function EntityRoutingAttribute.splitterVersionOf(entity_name)
     TransportLineGroup.tryLoadAllGroups()
     local lineGroup = TransportLineGroup.getLineGroup(entity_name)
     if lineGroup then
-        return lineGroup[TransportLineType.splitterBelt]
+        return lineGroup[EntityRoutingAttribute.splitterBelt]
     end
 end
 
 --- @return LuaEntityPrototype|nil
-function TransportLineType.undergroundVersionOf(entity_name)
+function EntityRoutingAttribute.undergroundVersionOf(entity_name)
     TransportLineGroup.tryLoadAllGroups()
     local lineGroup = TransportLineGroup.getLineGroup(entity_name)
     if lineGroup then
-        return lineGroup[TransportLineType.undergroundBelt]
+        return lineGroup[EntityRoutingAttribute.undergroundBelt]
     end
 end
 
-return TransportLineType
+return EntityRoutingAttribute
