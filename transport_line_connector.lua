@@ -21,6 +21,8 @@ local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type PathUnit
 local PathUnit = require("path_unit")
 local DirectionHelper = {}
+--- @type TransportLineType
+local TransportLineType = require("enum/line_type")
 
 --- @param entity LuaEntity
 --- @return Vector2D
@@ -186,7 +188,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         reportToPlayer("ending line entity is no longer valid")
         return
     end
-    local onGroundVersion = EntityRoutingAttribute.onGroundVersionOf(startingEntity.name)
+    local onGroundVersion = EntityRoutingAttribute.from(startingEntity.name).groundEntityPrototype
     if onGroundVersion == nil then
         reportToPlayer("Can't find this entity's associated transport line type")
         return
@@ -207,8 +209,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
 
     -- Here starts the main logic of function
 
-    local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == EntityRoutingAttribute.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
-    if not self.canPlaceEntityFunc(startingEntityTargetPos) and EntityRoutingAttribute.from(startingUnit.name).lineType == EntityRoutingAttribute.itemLine then
+    local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
+    if not self.canPlaceEntityFunc(startingEntityTargetPos) and EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine then
         logging.log("starting entity's target position is blocked")
         return
     end
@@ -276,9 +278,9 @@ end
 function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
     assertNotNull(self, pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
 
-    local entityType = EntityRoutingAttribute.from(pathUnit.name)
+    local attribute = EntityRoutingAttribute.from(pathUnit.name)
 
-    if entityType.groundType == EntityRoutingAttribute.underGround then
+    if attribute.isUnderground then
         -- make sure there is no interfering underground belts whose direction is parallel to our underground belt pair
         for testDiff = 1, pathUnit.distance - 2, 1 do
             local testPos = pathUnit.position + Vector2D.fromDirection(pathUnit.direction):scale(testDiff)
@@ -304,11 +306,11 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
     end
     local closeToFinal = false
     for _, entity in ipairs(pathUnit:toEntitySpecs()) do
-        if entityType.lineType == EntityRoutingAttribute.itemLine then
+        if attribute.lineType == TransportLineType.itemLine then
             -- Check neighbor belts, make sure they don't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
-                if neighborType and neighborType.lineType == EntityRoutingAttribute.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
                     if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
                         logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
@@ -317,12 +319,12 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                     end
                 end
             end
-        elseif (entityType.lineType == EntityRoutingAttribute.fluidLine and entityType.groundType == EntityRoutingAttribute.onGround) then
+        elseif (attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false) then
             -- Check neighbor pipes, make sure pipe are not our neighbor and underground pipe doesn't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
-                if neighborType and neighborType.lineType == EntityRoutingAttribute.fluidLine then
-                    if neighborType.groundType == EntityRoutingAttribute.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                if neighborType and neighborType.lineType == TransportLineType.fluidLine then
+                    if neighborType.isUnderground == false or DirectionHelper.targetPositionOf(neighbor) == entity.position then
                         if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
                             logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false

@@ -11,6 +11,10 @@ local Vector2D = require("__MiscLib__/vector2d")
 local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type ArrayList
 local ArrayList = require("__MiscLib__/array_list")
+--- @type EntityTransportType
+local EntityTransportType = require("enum/entity_transport_type")
+--- @type TransportLineType
+local TransportLineType = require("enum/line_type")
 
 --- @class LuaEntitySpec
 --- @field name string
@@ -49,7 +53,7 @@ function PathUnit:fromLuaEntity(entity, halfUndergroundPipeAsInput)
         direction = entity.direction or defines.direction.north,
         distance = 1
     }
-    if halfUndergroundPipeAsInput and EntityRoutingAttribute.from(entity.name).lineType == EntityRoutingAttribute.fluidLine and EntityRoutingAttribute.from(entity.name).groundType == EntityRoutingAttribute.underGround then
+    if halfUndergroundPipeAsInput and EntityRoutingAttribute.from(entity.name).lineType == TransportLineType.fluidLine and EntityRoutingAttribute.from(entity.name).isUnderground then
         newUnit.direction = reverseDirection(newUnit.direction)
     end
     return newUnit
@@ -68,7 +72,7 @@ end
 --- @return LuaEntitySpec[]
 function PathUnit:toEntitySpecs()
     local type = EntityRoutingAttribute.from(self.name)
-    if type.groundType == EntityRoutingAttribute.onGround then
+    if type.isUnderground == false then
         if self.distance == 1 then
             return {
                 { name = self.name, direction = self.direction, position = self.position }
@@ -82,7 +86,7 @@ function PathUnit:toEntitySpecs()
             return out
         end
     else
-        if type.lineType == EntityRoutingAttribute.fluidLine then
+        if type.lineType == TransportLineType.fluidLine then
             local out = {}
             out[1] = { name = self.name, direction = Vector2D.fromDirection(self.direction):reverse():toDirection(), position = self.position }
             if self.distance > 1 then
@@ -108,14 +112,14 @@ end
 --- @return PathUnit[]
 function PathUnit:possibleNextPathUnits(allowUnderground)
     local attribute = EntityRoutingAttribute.from(self.name)
-    local undergroundPrototype = EntityRoutingAttribute.undergroundVersionOf(self.name)
-    local onGroundPrototype = EntityRoutingAttribute.onGroundVersionOf(self.name)
+    local undergroundPrototype = attribute.undergroundEntityPrototype
+    local onGroundPrototype = attribute.groundEntityPrototype
     local directionVector = Vector2D.fromDirection(self.direction)
     local endingPosition = (self.distance == 1) and self.position or (self.position + directionVector:scale(self.distance - 1))
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
     local posDiffDirections
-    if attribute.lineType == EntityRoutingAttribute.fluidLine and attribute.groundType == EntityRoutingAttribute.onGround then
+    if attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false then
         -- on ground pipe allow 4-way direction
         posDiffDirections = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
     else
@@ -151,15 +155,15 @@ end
 --- @param allowUnderground boolean
 --- @return PathUnit[]
 function PathUnit:possiblePrevPathUnits(allowUnderground)
-    local undergroundPrototype = EntityRoutingAttribute.undergroundVersionOf(self.name)
-    local onGroundPrototype = EntityRoutingAttribute.onGroundVersionOf(self.name)
     local attribute = EntityRoutingAttribute.from(self.name)
+    local undergroundPrototype = attribute.undergroundEntityPrototype
+    local onGroundPrototype = attribute.groundEntityPrototype
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
     --- @type defines.direction[]
     local posDiffDirections
-    if attribute.lineType == EntityRoutingAttribute.itemLine then
-        if attribute.beltType == EntityRoutingAttribute.undergroundBelt or attribute.beltType == EntityRoutingAttribute.splitterBelt then
+    if attribute.lineType == TransportLineType.itemLine then
+        if attribute.beltType == EntityTransportType.underground or attribute.beltType == EntityTransportType.splitter then
             -- underground belt/splitter's input only allows one direction
             posDiffDirections = { reverseDirection(self.direction) }
         else
@@ -167,7 +171,7 @@ function PathUnit:possiblePrevPathUnits(allowUnderground)
             posDiffDirections = frontLeftRightOf(reverseDirection(self.direction))
         end
     else
-        if attribute.groundType == EntityRoutingAttribute.underGround then
+        if attribute.isUnderground then
             -- underground pipe's input only allows one direction
             posDiffDirections = { reverseDirection(self.direction) }
         else
@@ -210,7 +214,7 @@ function PathUnit:canConnect(other)
     local attribute = EntityRoutingAttribute.from(self.name)
     for _, testUnit in ipairs(other:possiblePrevPathUnits()) do
         if self.position == testUnit.position then
-            if attribute.lineType == EntityRoutingAttribute.fluidLine and attribute.groundType == EntityRoutingAttribute.onGround then
+            if attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false then
                 -- pipe is not direction dependent, so we don't test for its direction
                 return true
             else

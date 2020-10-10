@@ -20,11 +20,13 @@ local releaseMode = require("release")
 local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
+--- @type EntityTransportType
+local EntityTransportType = require("enum/entity_transport_type")
 --- @type table<string, boolean>
 local loggingCategories = {
     reward = false,
     placing = false,
-    transportType = false
+    transportType = true
 }
 --- @type AsyncTaskManager
 local AsyncTaskManager = require("__MiscLib__/async_task")
@@ -65,7 +67,7 @@ local function setStartingTransportLine(event)
     end
     local transportLineType = EntityRoutingAttribute.from(selectedEntity.prototype.name)
     if transportLineType then
-        if transportLineType.beltType == EntityRoutingAttribute.splitterBelt then
+        if transportLineType.beltType == EntityTransportType.splitter then
             -- since splitter belt has 2-block width, we need to figure out which part is routable and smartly choose the routable belt
             local splitterPositions = ArrayList.new { Vector2D.new(0, 0), Vector2D.new(0, 0) }
             splitterPositions[1].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
