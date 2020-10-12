@@ -272,8 +272,15 @@ end
 function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
     assertNotNull(self, pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
 
-    local attribute = EntityRoutingAttribute.from(pathUnit.name)
+    local entityList = pathUnit:toEntitySpecs()
 
+    for _, entity in ipairs(entityList) do
+        if not self.canPlaceEntityFunc(entity.position) then
+            return false
+        end
+    end
+
+    local attribute = EntityRoutingAttribute.from(pathUnit.name)
     if attribute.isUnderground then
         -- make sure there is no interfering underground belts whose direction is parallel to our underground belt pair
         for testDiff = 1, pathUnit.distance - 2, 1 do
@@ -293,13 +300,8 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
         end
     end
 
-    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
-        if not self.canPlaceEntityFunc(entity.position) then
-            return false
-        end
-    end
     local closeToFinal = false
-    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
+    for _, entity in ipairs(entityList) do
         if attribute.lineType == TransportLineType.itemLine then
             -- Check neighbor belts, make sure they don't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do

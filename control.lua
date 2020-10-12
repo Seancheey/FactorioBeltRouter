@@ -26,7 +26,7 @@ local EntityTransportType = require("enum/entity_transport_type")
 local loggingCategories = {
     reward = false,
     placing = false,
-    transportType = true
+    transportType = false
 }
 --- @type AsyncTaskManager
 local AsyncTaskManager = require("__MiscLib__/async_task")
