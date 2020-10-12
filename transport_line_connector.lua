@@ -230,7 +230,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             end
             for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit)) do
                 local newChain = TransportChain.new(pathUnit, transportChain, preferOnGround)
-                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
+                priorityQueue:push(self:estimateDistance(pathUnit, startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
         end
@@ -348,17 +348,17 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
 end
 
 --- A* algorithm's heuristics cost
---- @param testEntity LuaEntity
+--- @param testPathUnit PathUnit
 --- @param targetPos Vector2D
 --- @param rewardDirection defines.direction
-function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDirection)
-    local dx = math.abs(testEntity.position.x - targetPos.x)
-    local dy = math.abs(testEntity.position.y - targetPos.y)
+function TransportLineConnector:estimateDistance(testPathUnit, targetPos, rewardDirection)
+    local dx = math.abs(testPathUnit.position.x - targetPos.x)
+    local dy = math.abs(testPathUnit.position.y - targetPos.y)
     -- break A* cost tie by rewarding going to same x/y-level, but reward is no more than 1
     local positionReward = 1 / (dy + 1)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
-    local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+    local directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     logging.log("reward = " .. tostring(positionReward), "reward")
     return (dx + dy + 1 - positionReward - directionReward) * 1.1 -- slightly encourage greedy-first
 end
