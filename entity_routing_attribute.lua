@@ -6,12 +6,16 @@
 
 --- @type Logger
 local logging = require("__MiscLib__/logging")
+--- @type Vector2D
+local Vector2D = require("__MiscLib__/vector2d")
 --- @type EntityTransportType
 local EntityTransportType = require("enum/entity_transport_type")
 --- @type TransportLineType
 local TransportLineType = require("enum/line_type")
 --- @type DirectionHelper
 local DirectionHelper = require("__MiscLib__/direction_helper")
+--- @type ArrayList
+local ArrayList = require("__MiscLib__/array_list")
 
 local function log(message)
     logging.log(message, "transportType")
@@ -119,6 +123,12 @@ function EntityRoutingAttribute.from(entity_name)
         else
             type.beltType = EntityTransportType.onGround
         end
+    elseif type.lineType == TransportLineType.fluidLine then
+        if prototype.pumping_speed ~= nil then
+            type.beltType = EntityTransportType.pump
+        else
+            type.beltType = EntityTransportType.pipe
+        end
     end
     type.isUnderground = prototype.max_underground_distance ~= nil
     setmetatable(type, EntityRoutingAttribute)
@@ -142,12 +152,53 @@ function EntityRoutingAttribute:isUndergroundBelt()
     return self.isUnderground and self.lineType == TransportLineType.itemLine
 end
 
+function EntityRoutingAttribute:isSplitter()
+    return self.beltType == EntityTransportType.splitter
+end
+
+function EntityRoutingAttribute:isPump()
+    return self.beltType == EntityTransportType.pump
+end
+
+--- @return Vector2D
+function EntityRoutingAttribute:snapToNearestPoint(position)
+    return Vector2D.new(math.floor(position.x + 1) - 0.5, math.floor(position.y + 1) - 0.5)
+end
+
+function EntityRoutingAttribute:getAllPointPositions(position, direction)
+    if not self:isPump() and not self:isSplitter() then
+        return { position }
+    end
+    local normalizedStretchDirection = 0
+    if self:isPump() then
+        -- stretch bounding box along direction
+        normalizedStretchDirection = (direction - 2) % 4 + 2
+    elseif self:isSplitter() then
+        -- stretch bounding box along perpendicular direction
+        normalizedStretchDirection = direction % 4 + 2
+    end
+    local centerPos = Vector2D.fromPosition(position)
+    local startPosDelta = Vector2D.fromDirection(normalizedStretchDirection):scale(0.5):reverse()
+    local endPosDelta = Vector2D.fromDirection(normalizedStretchDirection):scale(0.5)
+    local startingPos = self:snapToNearestPoint(centerPos + startPosDelta)
+    local endingPos = self:snapToNearestPoint(centerPos + endPosDelta)
+    local positions = ArrayList.new()
+    for y = startingPos.y, endingPos.y do
+        for x = startingPos.x, endingPos.x do
+            positions:add(Vector2D.new(x, y))
+        end
+    end
+    return positions
+end
+
 --- @type table<fun(attribute: EntityRoutingAttribute):boolean, fun(direction: defines.direction):defines.direction[]>
 local nextDisplacements = {
     isOnGroundPipe = DirectionHelper.listAllStraightDirectionOf,
     isOnGroundBelt = DirectionHelper.listFrontOf,
     isUndergroundPipe = DirectionHelper.listFrontOf,
-    isUndergroundBelt = DirectionHelper.listFrontOf
+    isUndergroundBelt = DirectionHelper.listFrontOf,
+    isPump = DirectionHelper.listFrontOf,
+    isSplitter = DirectionHelper.listFrontOf,
 }
 
 --- @type table<fun(attribute: EntityRoutingAttribute):boolean, fun(direction: defines.direction):defines.direction[]>
@@ -155,7 +206,9 @@ local prevDisplacements = {
     isOnGroundPipe = DirectionHelper.listAllStraightDirectionOf,
     isOnGroundBelt = DirectionHelper.listTailLeftRightOf,
     isUndergroundPipe = DirectionHelper.listReverseOf,
-    isUndergroundBelt = DirectionHelper.listReverseOf
+    isUndergroundBelt = DirectionHelper.listReverseOf,
+    isPump = DirectionHelper.listReverseOf,
+    isSplitter = DirectionHelper.listReverseOf,
 }
 
 --- @return defines.direction[]

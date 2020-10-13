@@ -18,10 +18,6 @@ local TransportLineConnector = require("transport_line_connector")
 local releaseMode = require("release")
 --- @type EntityRoutingAttribute
 local EntityRoutingAttribute = require("entity_routing_attribute")
---- @type Vector2D
-local Vector2D = require("__MiscLib__/vector2d")
---- @type EntityTransportType
-local EntityTransportType = require("enum/entity_transport_type")
 --- @type table<string, boolean>
 local loggingCategories = {
     reward = false,
@@ -67,26 +63,6 @@ local function setStartingTransportLine(event)
     end
     local transportLineType = EntityRoutingAttribute.from(selectedEntity.prototype.name)
     if transportLineType then
-        if transportLineType.beltType == EntityTransportType.splitter then
-            -- since splitter belt has 2-block width, we need to figure out which part is routable and smartly choose the routable belt
-            local splitterPositions = ArrayList.new { Vector2D.new(0, 0), Vector2D.new(0, 0) }
-            splitterPositions[1].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x - 0.5 or selectedEntity.position.x
-            splitterPositions[1].y = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y - 0.5 or selectedEntity.position.y
-            splitterPositions[2].x = selectedEntity.position.x % 1 == 0 and selectedEntity.position.x + 0.5 or selectedEntity.position.x
-            splitterPositions[2].y = selectedEntity.position.y % 1 == 0 and selectedEntity.position.y + 0.5 or selectedEntity.position.y
-            local routablePositions = splitterPositions:filter(function(pos)
-                local targetPos = pos + Vector2D.fromDirection(selectedEntity.direction)
-                return player.surface.find_entities({ { targetPos.x, targetPos.y }, { targetPos.x, targetPos.y } })[1] == nil
-            end)
-            local chosenPosition = #routablePositions > 0 and routablePositions[1] or splitterPositions[1]
-            logging.log("splitter chosen position = " .. serpent.line(chosenPosition))
-            selectedEntity = {
-                name = selectedEntity.name,
-                direction = selectedEntity.direction,
-                position = chosenPosition,
-                valid = true
-            }
-        end
         pushNewStartingPosition(event.player_index, selectedEntity)
         player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
     end

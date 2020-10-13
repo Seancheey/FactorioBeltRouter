@@ -108,32 +108,33 @@ function PathUnit:possibleNextPathUnits(allowUnderground)
     local undergroundPrototype = attribute.undergroundEntityPrototype
     local onGroundPrototype = attribute.groundEntityPrototype
     local directionVector = Vector2D.fromDirection(self.direction)
-    local endingPosition = (self.distance == 1) and self.position or (self.position + directionVector:scale(self.distance - 1))
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
     local posDiffDirections = attribute:nextPossibleDisplacements(self.direction)
-
-    for _, posDiffDirection in ipairs(posDiffDirections) do
-        local posDiffVector = Vector2D.fromDirection(posDiffDirection)
-        local newPosition = endingPosition + posDiffVector
-        if allowUnderground then
-            -- adds underground candidates
-            for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
-                candidates:add(PathUnit:new {
-                    name = undergroundPrototype.name,
-                    direction = posDiffDirection,
-                    position = newPosition,
-                    distance = underground_distance
-                })
+    for _, pointPos in ipairs(attribute:getAllPointPositions(self.position, self.direction)) do
+        local endingPosition = (self.distance == 1) and pointPos or (pointPos + directionVector:scale(self.distance - 1))
+        for _, posDiffDirection in ipairs(posDiffDirections) do
+            local posDiffVector = Vector2D.fromDirection(posDiffDirection)
+            local newPosition = endingPosition + posDiffVector
+            if allowUnderground then
+                -- adds underground candidates
+                for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
+                    candidates:add(PathUnit:new {
+                        name = undergroundPrototype.name,
+                        direction = posDiffDirection,
+                        position = newPosition,
+                        distance = underground_distance
+                    })
+                end
             end
+            -- adds on ground candidate
+            candidates:add(PathUnit:new {
+                name = onGroundPrototype.name,
+                direction = posDiffDirection,
+                position = newPosition,
+                distance = 1
+            })
         end
-        -- adds on ground candidate
-        candidates:add(PathUnit:new {
-            name = onGroundPrototype.name,
-            direction = posDiffDirection,
-            position = newPosition,
-            distance = 1
-        })
     end
     return candidates
 end
@@ -148,26 +149,28 @@ function PathUnit:possiblePrevPathUnits(allowUnderground)
     local candidates = ArrayList.new()
     --- @type defines.direction[]
     local posDiffDirections = attribute:prevPossibleDisplacements(self.direction)
-    for _, posDiffDirection in ipairs(posDiffDirections) do
-        local posDiffVector = Vector2D.fromDirection(posDiffDirection)
-        if allowUnderground then
-            -- adds underground candidates
-            for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
-                candidates:add(PathUnit:new {
-                    name = undergroundPrototype.name,
-                    direction = reverseDirection(posDiffDirection),
-                    position = self.position + posDiffVector:scale(underground_distance),
-                    distance = underground_distance
-                })
+    for _, pointPos in ipairs(attribute:getAllPointPositions(self.position, self.direction)) do
+        for _, posDiffDirection in ipairs(posDiffDirections) do
+            local posDiffVector = Vector2D.fromDirection(posDiffDirection)
+            if allowUnderground then
+                -- adds underground candidates
+                for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
+                    candidates:add(PathUnit:new {
+                        name = undergroundPrototype.name,
+                        direction = reverseDirection(posDiffDirection),
+                        position = pointPos + posDiffVector:scale(underground_distance),
+                        distance = underground_distance
+                    })
+                end
             end
+            -- adds on ground candidate
+            candidates:add(PathUnit:new {
+                name = onGroundPrototype.name,
+                direction = reverseDirection(posDiffDirection),
+                position = posDiffVector + Vector2D.fromPosition(pointPos),
+                distance = 1
+            })
         end
-        -- adds on ground candidate
-        candidates:add(PathUnit:new {
-            name = onGroundPrototype.name,
-            direction = reverseDirection(posDiffDirection),
-            position = posDiffVector + Vector2D.fromPosition(self.position),
-            distance = 1
-        })
     end
     return candidates
 end
@@ -181,13 +184,16 @@ end
 --- @return boolean
 function PathUnit:canConnect(other)
     local attribute = EntityRoutingAttribute.from(self.name)
+    local detectPositions = attribute:getAllPointPositions(self.position, self.direction)
     for _, testUnit in ipairs(other:possiblePrevPathUnits()) do
-        if self.position == testUnit.position then
-            if attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false then
-                -- pipe is not direction dependent, so we don't test for its direction
-                return true
-            else
-                return self.direction == testUnit.direction
+        for _, detectPos in ipairs(detectPositions) do
+            if detectPos == testUnit.position then
+                if attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false then
+                    -- pipe is not direction dependent, so we don't test for its direction
+                    return true
+                else
+                    return self.direction == testUnit.direction
+                end
             end
         end
     end

@@ -12,5 +12,6 @@ EntityTransportType.onGround = "onGround"
 EntityTransportType.underground = "underground"
 EntityTransportType.splitter = "splitter"
 EntityTransportType.pump = "pump"
+EntityTransportType.pipe = "pipe"
 
 return EntityTransportType

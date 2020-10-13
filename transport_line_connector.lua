@@ -202,12 +202,19 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local priorityQueue = MinHeap.new()
 
     -- Here starts the main logic of function
-
-    local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
-    if not self.canPlaceEntityFunc(startingEntityTargetPos) and EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine then
-        logging.log("starting entity's target position is blocked")
+    local startingEntityTargets = startingUnit:possibleNextPathUnits(false)
+    local anyUnblocked = false
+    for _, target in ipairs(startingEntityTargets) do
+        if self.canPlaceEntityFunc(target.position) then
+            anyUnblocked = true
+            break
+        end
+    end
+    if not anyUnblocked then
+        reportToPlayer("starting position is blocked. Path finding terminated.")
         return
     end
+    local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
     -- A* algorithm starts from endingUnit so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingUnit))
     local maxTryNum = settings.get_player_settings(player)["max-path-finding-explore-num"].value
