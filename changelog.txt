@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.1
+Date: 2020.10.13
+  Optimisations:
+    - Slightly increase path finding speed
+    - Add compatibility with space exploration pipe/belts and krastorio pipe/belts
+  Features:
+    - Now pumps and splitter routing is fully supported
+
+---------------------------------------------------------------------------------------------------
 Version: 0.6.0
 Date: 2020.10.09
   Bugfixes:

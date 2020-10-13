@@ -7,10 +7,14 @@
 local assertNotNull = require("__MiscLib__/assert_not_null")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
---- @type TransportLineType
-local TransportLineType = require("transport_line_type")
+--- @type EntityRoutingAttribute
+local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type ArrayList
 local ArrayList = require("__MiscLib__/array_list")
+--- @type TransportLineType
+local TransportLineType = require("enum/line_type")
+--- @type DirectionHelper
+local DirectionHelper = require("__MiscLib__/direction_helper")
 
 --- @class LuaEntitySpec
 --- @field name string
@@ -30,14 +34,7 @@ local ArrayList = require("__MiscLib__/array_list")
 local PathUnit = {}
 
 --- @return defines.direction
-local function reverseDirection(direction)
-    return (direction + 4) % 8
-end
-
---- @return defines.direction[]
-local function frontLeftRightOf(direction)
-    return { direction, (direction + 2) % 8, (direction + 6) % 8 }
-end
+local reverseDirection = DirectionHelper.reverseOf
 
 --- @param entity LuaEntity
 --- @param halfUndergroundPipeAsInput boolean since we cannot decide if a single underground pipe is input or output, by default we consider it as output
@@ -49,7 +46,7 @@ function PathUnit:fromLuaEntity(entity, halfUndergroundPipeAsInput)
         direction = entity.direction or defines.direction.north,
         distance = 1
     }
-    if halfUndergroundPipeAsInput and TransportLineType.getType(entity.name).lineType == TransportLineType.fluidLine and TransportLineType.getType(entity.name).groundType == TransportLineType.underGround then
+    if halfUndergroundPipeAsInput and EntityRoutingAttribute.from(entity.name).lineType == TransportLineType.fluidLine and EntityRoutingAttribute.from(entity.name).isUnderground then
         newUnit.direction = reverseDirection(newUnit.direction)
     end
     return newUnit
@@ -67,8 +64,8 @@ end
 
 --- @return LuaEntitySpec[]
 function PathUnit:toEntitySpecs()
-    local type = TransportLineType.getType(self.name)
-    if type.groundType == TransportLineType.onGround then
+    local type = EntityRoutingAttribute.from(self.name)
+    if type.isUnderground == false then
         if self.distance == 1 then
             return {
                 { name = self.name, direction = self.direction, position = self.position }
@@ -107,94 +104,77 @@ end
 --- @param allowUnderground boolean default false
 --- @return PathUnit[]
 function PathUnit:possibleNextPathUnits(allowUnderground)
-    local attribute = TransportLineType.getType(self.name)
-    local undergroundPrototype = TransportLineType.undergroundVersionOf(self.name)
-    local onGroundPrototype = TransportLineType.onGroundVersionOf(self.name)
+    local attribute = EntityRoutingAttribute.from(self.name)
+    local undergroundPrototype = attribute.undergroundEntityPrototype
+    local onGroundPrototype = attribute.groundEntityPrototype
     local directionVector = Vector2D.fromDirection(self.direction)
-    local endingPosition = (self.distance == 1) and self.position or (self.position + directionVector:scale(self.distance - 1))
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
-    local posDiffDirections
-    if attribute.lineType == TransportLineType.fluidLine and attribute.groundType == TransportLineType.onGround then
-        -- on ground pipe allow 4-way direction
-        posDiffDirections = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
-    else
-        -- all other only allow 1 direction
-        posDiffDirections = { self.direction }
-    end
-
-    for _, posDiffDirection in ipairs(posDiffDirections) do
-        local posDiffVector = Vector2D.fromDirection(posDiffDirection)
-        local newPosition = endingPosition + posDiffVector
-        if allowUnderground then
-            -- adds underground candidates
-            for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
-                candidates:add(PathUnit:new {
-                    name = undergroundPrototype.name,
-                    direction = posDiffDirection,
-                    position = newPosition,
-                    distance = underground_distance
-                })
+    local posDiffDirections = attribute:nextPossibleDisplacements(self.direction)
+    for _, pointPos in ipairs(attribute:getAllPointPositions(self.position, self.direction)) do
+        local endingPosition = (self.distance == 1) and pointPos or (pointPos + directionVector:scale(self.distance - 1))
+        for _, posDiffDirection in ipairs(posDiffDirections) do
+            local posDiffVector = Vector2D.fromDirection(posDiffDirection)
+            local newPosition = endingPosition + posDiffVector
+            if allowUnderground then
+                -- adds underground candidates
+                for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
+                    candidates:add(PathUnit:new {
+                        name = undergroundPrototype.name,
+                        direction = posDiffDirection,
+                        position = newPosition,
+                        distance = underground_distance
+                    })
+                end
             end
+            -- adds on ground candidate
+            candidates:add(PathUnit:new {
+                name = onGroundPrototype.name,
+                direction = posDiffDirection,
+                position = newPosition,
+                distance = 1
+            })
         end
-        -- adds on ground candidate
-        candidates:add(PathUnit:new {
-            name = onGroundPrototype.name,
-            direction = posDiffDirection,
-            position = newPosition,
-            distance = 1
-        })
     end
     return candidates
 end
 
 --- @param allowUnderground boolean
+--- @param canPruneNonMaxUndergroundCandidates boolean
 --- @return PathUnit[]
-function PathUnit:possiblePrevPathUnits(allowUnderground)
-    local undergroundPrototype = TransportLineType.undergroundVersionOf(self.name)
-    local onGroundPrototype = TransportLineType.onGroundVersionOf(self.name)
-    local attribute = TransportLineType.getType(self.name)
+function PathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergroundCandidates)
+    local attribute = EntityRoutingAttribute.from(self.name)
+    local undergroundPrototype = attribute.undergroundEntityPrototype
+    local onGroundPrototype = attribute.groundEntityPrototype
     --- @type PathUnit[]|ArrayList
     local candidates = ArrayList.new()
     --- @type defines.direction[]
-    local posDiffDirections
-    if attribute.lineType == TransportLineType.itemLine then
-        if attribute.beltType == TransportLineType.undergroundBelt or attribute.beltType == TransportLineType.splitterBelt then
-            -- underground belt/splitter's input only allows one direction
-            posDiffDirections = { reverseDirection(self.direction) }
-        else
-            -- normal belt would allow 3 legal directions
-            posDiffDirections = frontLeftRightOf(reverseDirection(self.direction))
-        end
-    else
-        if attribute.groundType == TransportLineType.underGround then
-            -- underground pipe's input only allows one direction
-            posDiffDirections = { reverseDirection(self.direction) }
-        else
-            -- normal pipe would allow 4 legal directions
-            posDiffDirections = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
-        end
-    end
-    for _, posDiffDirection in ipairs(posDiffDirections) do
-        local posDiffVector = Vector2D.fromDirection(posDiffDirection)
-        if allowUnderground then
-            -- adds underground candidates
-            for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
-                candidates:add(PathUnit:new {
-                    name = undergroundPrototype.name,
-                    direction = reverseDirection(posDiffDirection),
-                    position = self.position + posDiffVector:scale(underground_distance),
-                    distance = underground_distance
-                })
+    local posDiffDirections = attribute:prevPossibleDisplacements(self.direction)
+    for _, pointPos in ipairs(attribute:getAllPointPositions(self.position, self.direction)) do
+        for _, posDiffDirection in ipairs(posDiffDirections) do
+            local posDiffVector = Vector2D.fromDirection(posDiffDirection)
+            if allowUnderground then
+                -- adds underground candidates
+                for underground_distance = undergroundPrototype.max_underground_distance + 1, 3, -1 do
+                    candidates:add(PathUnit:new {
+                        name = undergroundPrototype.name,
+                        direction = reverseDirection(posDiffDirection),
+                        position = pointPos + posDiffVector:scale(underground_distance),
+                        distance = underground_distance
+                    })
+                    if canPruneNonMaxUndergroundCandidates then
+                        break
+                    end
+                end
             end
+            -- adds on ground candidate
+            candidates:add(PathUnit:new {
+                name = onGroundPrototype.name,
+                direction = reverseDirection(posDiffDirection),
+                position = posDiffVector + Vector2D.fromPosition(pointPos),
+                distance = 1
+            })
         end
-        -- adds on ground candidate
-        candidates:add(PathUnit:new {
-            name = onGroundPrototype.name,
-            direction = reverseDirection(posDiffDirection),
-            position = posDiffVector + Vector2D.fromPosition(self.position),
-            distance = 1
-        })
     end
     return candidates
 end
@@ -207,14 +187,17 @@ end
 --- @param other PathUnit
 --- @return boolean
 function PathUnit:canConnect(other)
-    local attribute = TransportLineType.getType(self.name)
+    local attribute = EntityRoutingAttribute.from(self.name)
+    local detectPositions = attribute:getAllPointPositions(self.position, self.direction)
     for _, testUnit in ipairs(other:possiblePrevPathUnits()) do
-        if self.position == testUnit.position then
-            if attribute.lineType == TransportLineType.fluidLine and attribute.groundType == TransportLineType.onGround then
-                -- pipe is not direction dependent, so we don't test for its direction
-                return true
-            else
-                return self.direction == testUnit.direction
+        for _, detectPos in ipairs(detectPositions) do
+            if detectPos == testUnit.position then
+                if attribute:isOnGroundPipe() then
+                    -- pipe is not direction dependent, so we don't test for its direction
+                    return true
+                else
+                    return self.direction == testUnit.direction
+                end
             end
         end
     end

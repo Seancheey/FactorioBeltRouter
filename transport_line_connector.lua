@@ -16,11 +16,13 @@ local MinHeap = require("__MiscLib__/minheap")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
 local release_mode = require("release")
---- @type TransportLineType
-local TransportLineType = require("transport_line_type")
+--- @type EntityRoutingAttribute
+local EntityRoutingAttribute = require("entity_routing_attribute")
 --- @type PathUnit
 local PathUnit = require("path_unit")
 local DirectionHelper = {}
+--- @type TransportLineType
+local TransportLineType = require("enum/line_type")
 
 --- @param entity LuaEntity
 --- @return Vector2D
@@ -96,10 +98,11 @@ end
 --- @type MinDistanceDict
 local MinDistanceDict = {}
 MinDistanceDict.__directionNum = 8
+MinDistanceDict.__index = MinDistanceDict
 
 --- @return MinDistanceDict
 function MinDistanceDict.new()
-    return setmetatable({}, { __index = MinDistanceDict })
+    return setmetatable({}, MinDistanceDict)
 end
 
 function MinDistanceDict.__marshalize(vector, direction)
@@ -186,7 +189,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         reportToPlayer("ending line entity is no longer valid")
         return
     end
-    local onGroundVersion = TransportLineType.onGroundVersionOf(startingEntity.name)
+    local onGroundVersion = EntityRoutingAttribute.from(startingEntity.name).groundEntityPrototype
     if onGroundVersion == nil then
         reportToPlayer("Can't find this entity's associated transport line type")
         return
@@ -194,24 +197,24 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local startingUnit = PathUnit:fromLuaEntity(startingEntity)
     local endingUnit = PathUnit:fromLuaEntity(endingEntity, true)
 
-    local allowUnderground = true
-    if additionalConfig and additionalConfig.allowUnderground ~= nil then
-        allowUnderground = additionalConfig.allowUnderground
-    end
-    local preferOnGround = false
-    if additionalConfig and additionalConfig.preferOnGround ~= nil then
-        preferOnGround = additionalConfig.preferOnGround
-    end
+    local allowUnderground, preferOnGround = self:parseConfig(additionalConfig)
     local minDistanceDict = MinDistanceDict.new()
     local priorityQueue = MinHeap.new()
 
     -- Here starts the main logic of function
-
-    local startingEntityTargetPos = TransportLineType.getType(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
-    if not self.canPlaceEntityFunc(startingEntityTargetPos) and TransportLineType.getType(startingUnit.name).lineType == TransportLineType.itemLine then
-        logging.log("starting entity's target position is blocked")
+    local startingEntityTargets = startingUnit:possibleNextPathUnits(false)
+    local anyUnblocked = false
+    for _, target in ipairs(startingEntityTargets) do
+        if self.canPlaceEntityFunc(target.position) then
+            anyUnblocked = true
+            break
+        end
+    end
+    if not anyUnblocked then
+        reportToPlayer("starting position is blocked. Path finding terminated.")
         return
     end
+    local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
     -- A* algorithm starts from endingUnit so that we don't have to consider/change last belt's direction
     priorityQueue:push(0, TransportChain.new(endingUnit))
     local maxTryNum = settings.get_player_settings(player)["max-path-finding-explore-num"].value
@@ -234,7 +237,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             end
             for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit)) do
                 local newChain = TransportChain.new(pathUnit, transportChain, preferOnGround)
-                priorityQueue:push(self:estimateDistance(pathUnit:toEntitySpecs()[1], startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
+                priorityQueue:push(self:estimateDistance(pathUnit, startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
         end
@@ -257,8 +260,20 @@ end
 function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)
     assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity)
 
-    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground)
-
+    local canPruneNonMaxUndergroundCandidates = true
+    -- only when the whole underground belt line is clear, we can safely prune others
+    if allowUnderground then
+        local attribute = EntityRoutingAttribute.from(transportChain.pathUnit.name)
+        local undergroundDistance = attribute.undergroundEntityPrototype.max_underground_distance
+        local displacementDirection = Vector2D.fromDirection(transportChain.pathUnit.direction):reverse()
+        for distance = 1, undergroundDistance + 2 do
+            if not self.canPlaceEntityFunc(transportChain.pathUnit.position + displacementDirection:scale(distance)) then
+                canPruneNonMaxUndergroundCandidates = false
+                break
+            end
+        end
+    end
+    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergroundCandidates)
     local legalCandidates = ArrayList.new()
     for _, pathUnit in ipairs(candidates) do
         if self:testCanPlace(pathUnit, transportChain.cumulativeDistance + pathUnit.distance, minDistanceDict, startingEntity, transportChain) then
@@ -276,9 +291,16 @@ end
 function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
     assertNotNull(self, pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
 
-    local entityType = TransportLineType.getType(pathUnit.name)
+    local entityList = pathUnit:toEntitySpecs()
 
-    if entityType.groundType == TransportLineType.underGround then
+    for _, entity in ipairs(entityList) do
+        if not self.canPlaceEntityFunc(entity.position) then
+            return false
+        end
+    end
+
+    local attribute = EntityRoutingAttribute.from(pathUnit.name)
+    if attribute.isUnderground then
         -- make sure there is no interfering underground belts whose direction is parallel to our underground belt pair
         for testDiff = 1, pathUnit.distance - 2, 1 do
             local testPos = pathUnit.position + Vector2D.fromDirection(pathUnit.direction):scale(testDiff)
@@ -297,17 +319,12 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
         end
     end
 
-    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
-        if not self.canPlaceEntityFunc(entity.position) then
-            return false
-        end
-    end
     local closeToFinal = false
-    for _, entity in ipairs(pathUnit:toEntitySpecs()) do
-        if entityType.lineType == TransportLineType.itemLine then
+    for _, entity in ipairs(entityList) do
+        if attribute.lineType == TransportLineType.itemLine then
             -- Check neighbor belts, make sure they don't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
-                local neighborType = TransportLineType.getType(neighbor.name)
+                local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
                     if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
                         logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
@@ -317,12 +334,12 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                     end
                 end
             end
-        elseif (entityType.lineType == TransportLineType.fluidLine and entityType.groundType == TransportLineType.onGround) then
+        elseif attribute:isOnGroundPipe() then
             -- Check neighbor pipes, make sure pipe are not our neighbor and underground pipe doesn't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
-                local neighborType = TransportLineType.getType(neighbor.name)
+                local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
-                    if neighborType.groundType == TransportLineType.onGround or DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                    if neighborType:isOnGroundPipe() or DirectionHelper.targetPositionOf(neighbor) == entity.position then
                         if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
                             logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false
@@ -347,22 +364,25 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 distanceSmallerThanAny = true
             end
         end
+        if not distanceSmallerThanAny then
+            logging.log("distance is no smaller than any at " .. serpent.line(pathUnit.position), "placing")
+        end
         return distanceSmallerThanAny
     end
 end
 
 --- A* algorithm's heuristics cost
---- @param testEntity LuaEntity
+--- @param testPathUnit PathUnit
 --- @param targetPos Vector2D
 --- @param rewardDirection defines.direction
-function TransportLineConnector:estimateDistance(testEntity, targetPos, rewardDirection)
-    local dx = math.abs(testEntity.position.x - targetPos.x)
-    local dy = math.abs(testEntity.position.y - targetPos.y)
+function TransportLineConnector:estimateDistance(testPathUnit, targetPos, rewardDirection)
+    local dx = math.abs(testPathUnit.position.x - targetPos.x)
+    local dy = math.abs(testPathUnit.position.y - targetPos.y)
     -- break A* cost tie by rewarding going to same x/y-level, but reward is no more than 1
     local positionReward = 1 / (dy + 1)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
-    local directionReward = -1 * ((testEntity.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+    local directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     logging.log("reward = " .. tostring(positionReward), "reward")
     return (dx + dy + 1 - positionReward - directionReward) * 1.1 -- slightly encourage greedy-first
 end
@@ -387,6 +407,22 @@ function TransportLineConnector:debug_visited_position(minDistanceDict)
             game.players[1].create_local_flying_text { text = text, position = vector, time_to_live = 100000, speed = 0.000001 }
         end
     end
+end
+
+--- @param additionalConfig LineConnectConfig nullable
+--- @return boolean, boolean allowUnderground, preferOnGround
+function TransportLineConnector:parseConfig(additionalConfig)
+    local allowUnderground = true
+    local preferOnGround = false
+    if additionalConfig then
+        if additionalConfig.allowUnderground ~= nil then
+            allowUnderground = additionalConfig.allowUnderground
+        end
+        if additionalConfig.preferOnGround ~= nil then
+            preferOnGround = additionalConfig.preferOnGround
+        end
+    end
+    return allowUnderground, preferOnGround
 end
 
 return TransportLineConnector
