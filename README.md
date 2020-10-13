@@ -40,6 +40,6 @@ As title suggests, this mod is currently in beta preview, there are many bugs an
 * TODO: Use two-way A* algorithm for early detecting unreachable condition and faster routing
 * TODO: Fix bug that might makes path finder produce overlapping path for complex paths
 
-Special thanks to @ChrislyBear for fixing bug about building belts may collides with entity ghosts, @F0x06 and @Xiomax for bug reporting!
+Special thanks to @ChrislyBear for fixing bug about building belts may collides with entity ghosts, @F0x06, @RusselRaZe and @Xiomax for bug reporting, @slippycheeze for UI/algorithm suggestions!
 
 I've spent hours implementing A* algorithm and Dijkstra algorithm for path finding. If you find this mod helpful, please give this project a star on my [github page](https://github.com/Seancheey/FactorioBeltRouter) :) 
