@@ -157,7 +157,7 @@ function EntityRoutingAttribute:isOnGroundPipe()
 end
 
 function EntityRoutingAttribute:isOnGroundBelt()
-    return not self.isUnderground and self.lineType == TransportLineType.itemLine
+    return self.lineType == TransportLineType.itemLine and self.beltType == EntityTransportType.onGround
 end
 
 function EntityRoutingAttribute:isUndergroundPipe()
@@ -181,6 +181,7 @@ function EntityRoutingAttribute:snapToNearestPoint(position)
     return Vector2D.new(math.floor(position.x + 1) - 0.5, math.floor(position.y + 1) - 0.5)
 end
 
+--- @return Vector2D[] all points inscribed by the entity, which are snapped to (X.5, Y.5) where X,Y \in integer coordinate
 function EntityRoutingAttribute:getAllPointPositions(position, direction)
     if not self:isPump() and not self:isSplitter() then
         return { position }
