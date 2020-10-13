@@ -327,7 +327,7 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
-                    if neighborType.isUnderground == false or DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                    if neighborType:isOnGroundPipe() or DirectionHelper.targetPositionOf(neighbor) == entity.position then
                         if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
                             logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false
@@ -351,6 +351,9 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
                 minDistanceDict:put(sourceUnit.position, sourceUnit.direction, cumulativeDistance)
                 distanceSmallerThanAny = true
             end
+        end
+        if not distanceSmallerThanAny then
+            logging.log("distance is no smaller than any at " .. serpent.line(pathUnit.position), "placing")
         end
         return distanceSmallerThanAny
     end

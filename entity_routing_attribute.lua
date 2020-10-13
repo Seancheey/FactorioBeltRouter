@@ -27,19 +27,24 @@ local TransportLineGroup = {}
 TransportLineGroup.normalGroupDict = {}
 TransportLineGroup.undergroundGroupDict = {}
 TransportLineGroup.splitterGroupDict = {}
+TransportLineGroup.pumpGroupDict = {}
 TransportLineGroup.loaded = false
 
-function TransportLineGroup.add(normal, underground, splitter)
+function TransportLineGroup.add(normal, underground, splitter, pump)
     assert(normal and underground)
     local group = {
         [EntityTransportType.onGround] = game.entity_prototypes[normal],
         [EntityTransportType.underground] = game.entity_prototypes[underground],
         [EntityTransportType.splitter] = game.entity_prototypes[splitter],
+        [EntityTransportType.pump] = game.entity_prototypes[pump]
     }
     TransportLineGroup.normalGroupDict[normal] = group
     TransportLineGroup.undergroundGroupDict[underground] = group
     if splitter then
         TransportLineGroup.splitterGroupDict[splitter] = group
+    end
+    if pump then
+        TransportLineGroup.pumpGroupDict[pump] = group
     end
 end
 
@@ -51,6 +56,8 @@ function TransportLineGroup.tryLoadAllGroups()
     TransportLineGroup.add("transport-belt", "underground-belt", "splitter")
     TransportLineGroup.add("fast-transport-belt", "fast-underground-belt", "fast-splitter")
     TransportLineGroup.add("express-transport-belt", "express-underground-belt", "express-splitter")
+    TransportLineGroup.add("pipe", "pipe-to-ground", nil, "pump")
+    -- below starts mod entities handling
     TransportLineGroup.add("se-deep-space-transport-belt-black", "se-deep-space-underground-belt-black", "se-deep-space-splitter-black")
     TransportLineGroup.add("se-deep-space-transport-belt-blue", "se-deep-space-underground-belt-blue", "se-deep-space-splitter-blue")
     TransportLineGroup.add("se-deep-space-transport-belt-cyan", "se-deep-space-underground-belt-cyan", "se-deep-space-splitter-cyan")
@@ -60,7 +67,7 @@ function TransportLineGroup.tryLoadAllGroups()
     TransportLineGroup.add("se-deep-space-transport-belt-white", "se-deep-space-underground-belt-white", "se-deep-space-splitter-white")
     TransportLineGroup.add("se-deep-space-transport-belt-yellow", "se-deep-space-underground-belt-yellow", "se-deep-space-splitter-yellow")
     TransportLineGroup.add("se-space-pipe", "se-space-pipe-to-ground")
-    TransportLineGroup.add("pipe", "pipe-to-ground")
+    TransportLineGroup.add("kr-steel-pipe", "kr-steel-pipe-to-ground", nil, "kr-steel-pump")
 end
 
 --- Mod transport line mapping support. For mod belts, usually the function can automatically figure out the group.
@@ -137,7 +144,7 @@ function EntityRoutingAttribute.from(entity_name)
 end
 
 function EntityRoutingAttribute:isOnGroundPipe()
-    return not self.isUnderground and self.lineType == TransportLineType.fluidLine
+    return not self.isUnderground and self.beltType == EntityTransportType.pipe
 end
 
 function EntityRoutingAttribute:isOnGroundBelt()
@@ -267,7 +274,7 @@ function EntityRoutingAttribute:getLineGroup()
         log("Mapped special item " .. self.entityName .. "'s type to " .. specialTransportLineGroupMapping[entity_name])
         entity_name = specialTransportLineGroupMapping[entity_name]
     end
-    for _, dict in ipairs { TransportLineGroup.normalGroupDict, TransportLineGroup.undergroundGroupDict, TransportLineGroup.splitterGroupDict } do
+    for _, dict in ipairs { TransportLineGroup.normalGroupDict, TransportLineGroup.undergroundGroupDict, TransportLineGroup.splitterGroupDict, TransportLineGroup.pumpGroupDict } do
         if dict[entity_name] then
             return dict[entity_name]
         end

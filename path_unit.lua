@@ -188,7 +188,7 @@ function PathUnit:canConnect(other)
     for _, testUnit in ipairs(other:possiblePrevPathUnits()) do
         for _, detectPos in ipairs(detectPositions) do
             if detectPos == testUnit.position then
-                if attribute.lineType == TransportLineType.fluidLine and attribute.isUnderground == false then
+                if attribute:isOnGroundPipe() then
                     -- pipe is not direction dependent, so we don't test for its direction
                     return true
                 else
