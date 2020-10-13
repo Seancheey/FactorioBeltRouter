@@ -140,8 +140,9 @@ function PathUnit:possibleNextPathUnits(allowUnderground)
 end
 
 --- @param allowUnderground boolean
+--- @param canPruneNonMaxUndergroundCandidates boolean
 --- @return PathUnit[]
-function PathUnit:possiblePrevPathUnits(allowUnderground)
+function PathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergroundCandidates)
     local attribute = EntityRoutingAttribute.from(self.name)
     local undergroundPrototype = attribute.undergroundEntityPrototype
     local onGroundPrototype = attribute.groundEntityPrototype
@@ -154,13 +155,16 @@ function PathUnit:possiblePrevPathUnits(allowUnderground)
             local posDiffVector = Vector2D.fromDirection(posDiffDirection)
             if allowUnderground then
                 -- adds underground candidates
-                for underground_distance = 3, undergroundPrototype.max_underground_distance + 1 do
+                for underground_distance = undergroundPrototype.max_underground_distance + 1, 3, -1 do
                     candidates:add(PathUnit:new {
                         name = undergroundPrototype.name,
                         direction = reverseDirection(posDiffDirection),
                         position = pointPos + posDiffVector:scale(underground_distance),
                         distance = underground_distance
                     })
+                    if canPruneNonMaxUndergroundCandidates then
+                        break
+                    end
                 end
             end
             -- adds on ground candidate
