@@ -3,6 +3,15 @@
 --- Created by seancheey.
 --- DateTime: 10/3/20 11:59 PM
 ---
+--- This file, as name suggests, consists of "routing attributes" for different entities.
+--- I categorize "routable entities" into 4 categories: above-ground, underground, splitter and pump
+--- Each of them behaves a little bit different in path finding.
+--- And entities are grouped together so that, for example, if a player choose a underground belt, we can know what kind of belt he/she actually wants
+---
+--- So I designed 2 classes:
+---   1. TransportLineGroup, which describes the grouping of entities
+---   2. EntityRoutingAttribute, which describes different entities' connectivity and its group
+---
 
 --- @type Logger
 local logging = require("__MiscLib__/logging")
@@ -70,7 +79,7 @@ function TransportLineGroup.tryLoadAllGroups()
     TransportLineGroup.add("kr-steel-pipe", "kr-steel-pipe-to-ground", nil, "kr-steel-pump")
 end
 
---- Mod transport line mapping support. For mod belts, usually the function can automatically figure out the group.
+--- Special mod transport line mapping support. For mod belts, usually the function can automatically figure out the group.
 --- @type table<string, string>
 local specialTransportLineGroupMapping = {
     ["factory-input-pipe"] = "pipe",
@@ -250,15 +259,6 @@ function EntityRoutingAttribute:onGroundVersion()
 end
 
 --- @return LuaEntityPrototype|nil
-function EntityRoutingAttribute:splitterVersion()
-    TransportLineGroup.tryLoadAllGroups()
-    local lineGroup = EntityRoutingAttribute.getLineGroup(self)
-    if lineGroup then
-        return lineGroup[EntityTransportType.splitter]
-    end
-end
-
---- @return LuaEntityPrototype|nil
 function EntityRoutingAttribute:undergroundVersion()
     TransportLineGroup.tryLoadAllGroups()
     local lineGroup = EntityRoutingAttribute.getLineGroup(self)
@@ -283,6 +283,7 @@ function EntityRoutingAttribute:getLineGroup()
     return self:inferLineGroup(entity_name)
 end
 
+--- when an entity's group is not found, we infer its group from its attributes (like belt speed and entity name)
 function EntityRoutingAttribute:inferLineGroup(entity_name)
     if EntityRoutingAttribute.from(entity_name).lineType == TransportLineType.itemLine then
         local groupBeltSpeed = game.entity_prototypes[entity_name].belt_speed
