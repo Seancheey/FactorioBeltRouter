@@ -182,16 +182,16 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         end
     end
     if not startingEntity.valid then
-        reportToPlayer("starting line entity is no longer valid")
+        reportToPlayer { "error-message.starting-entity-not-valid" }
         return
     end
     if not endingEntity.valid then
-        reportToPlayer("ending line entity is no longer valid")
+        reportToPlayer { "error-message.ending-entity-not-valid" }
         return
     end
     local onGroundVersion = EntityRoutingAttribute.from(startingEntity.name).groundEntityPrototype
     if onGroundVersion == nil then
-        reportToPlayer("Can't find this entity's associated transport line type")
+        reportToPlayer { "error-message.find-line-group-failed", { startingEntity.name } }
         return
     end
     local startingUnit = PathUnit:fromLuaEntity(startingEntity)
@@ -211,7 +211,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         end
     end
     if not anyUnblocked then
-        reportToPlayer("starting position is blocked. Path finding terminated.")
+        reportToPlayer { "error-message.starting-entity-blocked" }
         return
     end
     local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
@@ -228,7 +228,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             --- @type TransportChain
             local transportChain = priorityQueue:pop().val
             if tryNum == 0 then
-                player.create_local_flying_text { text = "path test", position = transportChain.pathUnit.position, time_to_live = 15 }
+                player.create_local_flying_text { text = { "info-message.path-find-tag" }, position = transportChain.pathUnit.position, time_to_live = 15 }
             end
             if startingUnit:canConnect(transportChain.pathUnit) then
                 transportChain:placeAllEntities(self.placeEntityFunc)
@@ -244,10 +244,10 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         totalTryNum = totalTryNum + tryNum
         if priorityQueue:isEmpty() then
             self:debug_visited_position(minDistanceDict)
-            reportToPlayer("Path finding terminated, there is probably no path between the two entity")
+            reportToPlayer { "error-message.path-find-terminated-early" }
         elseif totalTryNum >= maxTryNum then
             self:debug_visited_position(minDistanceDict)
-            reportToPlayer("Failed to connect transport line within " .. tostring(maxTryNum) .. " trials")
+            reportToPlayer { "error-message.maximum-trial-reached", tostring(maxTryNum) }
         elseif not foundPath then
             asyncTaskManager:pushTask(tryFindPath, taskPriority)
         end

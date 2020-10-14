@@ -56,10 +56,10 @@ local function setStartingTransportLine(event)
             playerSelectedStartingPositions[event.player_index] = SelectionQueue:new(event.player_index)
         end
         if playerSelectedStartingPositions[event.player_index]:tryRemoveDuplicate(selectedEntity) then
-            player.print("Removed selection")
+            player.print{"info-message.remove-starting-point"}
         else
             playerSelectedStartingPositions[event.player_index]:push(selectedEntity)
-            player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
+            player.print{"info-message.push-entity"}
         end
     end
 end
@@ -78,7 +78,7 @@ local function setEndingTransportLine(event, config)
         startingEntity = playerSelectedStartingPositions[event.player_index]:pop()
     end
     if not startingEntity then
-        player.print("You haven't specified any starting belt yet. Place a belt as starting transport line, and then shift + right click on it to mark it as starting belt.")
+        player.print{"error-message.no-starting-point-selected"}
         return
     end
     logging.log("build line with config: " .. serpent.line(config))
@@ -110,10 +110,7 @@ local function setEndingTransportLine(event, config)
         end
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity, taskManager)
-    local errorMessage = transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, taskManager, config, player)
-    if errorMessage then
-        player.print(errorMessage)
-    end
+    transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, taskManager, config, player)
 end
 
 --- helper function
