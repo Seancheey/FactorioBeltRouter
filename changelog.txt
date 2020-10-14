@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.0
+Date: 2020.10.14
+  Features:
+    - Add graphical indicators for selected starting points
+    - Allow removing a starting point by shift+right click on the entity again
+    - Support selecting entity ghost as starting/ending point
+    - Fully support localisation messages
+
+---------------------------------------------------------------------------------------------------
 Version: 0.6.1
 Date: 2020.10.13
   Optimisations:

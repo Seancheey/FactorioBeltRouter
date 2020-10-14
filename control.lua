@@ -7,25 +7,27 @@
 
 --- @alias player_index number
 
---- @type ArrayList
-local ArrayList = require("__MiscLib__/array_list")
 --- @type Copier
 local Copy = require("__MiscLib__/copy")
 --- @type Logger
 local logging = require("__MiscLib__/logging")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
+--- @type boolean
 local releaseMode = require("release")
 --- @type EntityRoutingAttribute
 local EntityRoutingAttribute = require("entity_routing_attribute")
---- @type table<string, boolean>
+--- @type SelectionQueue
+local SelectionQueue = require("selection_queue")
+--- @type AsyncTaskManager
+local AsyncTaskManager = require("__MiscLib__/async_task")
+
+--- @type table<string, boolean> simple table for easy toggling debugging groups
 local loggingCategories = {
     reward = false,
     placing = false,
     transportType = false
 }
---- @type AsyncTaskManager
-local AsyncTaskManager = require("__MiscLib__/async_task")
 
 local taskManager = AsyncTaskManager:new()
 taskManager:resolveTaskEveryNthTick(1)
@@ -39,21 +41,8 @@ if releaseMode then
     logging.disableCategory(logging.V)
 end
 
---- @type table<player_index, ArrayList|LuaEntity[]>
+--- @type table<player_index, SelectionQueue>
 local playerSelectedStartingPositions = {}
-
-local function pushNewStartingPosition(player_index, entity)
-    if playerSelectedStartingPositions[player_index] == nil then
-        playerSelectedStartingPositions[player_index] = ArrayList.new()
-    end
-    playerSelectedStartingPositions[player_index]:add(entity)
-end
-
-local function popNewStartingPosition(player_index)
-    if playerSelectedStartingPositions[player_index] then
-        return playerSelectedStartingPositions[player_index]:popLeft()
-    end
-end
 
 local function setStartingTransportLine(event)
     local player = game.players[event.player_index]
@@ -61,10 +50,21 @@ local function setStartingTransportLine(event)
     if not selectedEntity then
         return
     end
-    local transportLineType = EntityRoutingAttribute.from(selectedEntity.prototype.name)
+    local entityName = selectedEntity.name
+    if entityName == "entity-ghost" then
+        entityName = selectedEntity.ghost_name
+    end
+    local transportLineType = EntityRoutingAttribute.from(entityName)
     if transportLineType then
-        pushNewStartingPosition(event.player_index, selectedEntity)
-        player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
+        if playerSelectedStartingPositions[event.player_index] == nil then
+            playerSelectedStartingPositions[event.player_index] = SelectionQueue:new(event.player_index)
+        end
+        if playerSelectedStartingPositions[event.player_index]:tryRemoveDuplicate(selectedEntity) then
+            player.print{"info-message.remove-starting-point"}
+        else
+            playerSelectedStartingPositions[event.player_index]:push(selectedEntity)
+            player.print{"info-message.push-entity"}
+        end
     end
 end
 
@@ -74,12 +74,19 @@ local function setEndingTransportLine(event, config)
     if not selectedEntity then
         return
     end
-    if not EntityRoutingAttribute.from(selectedEntity.prototype.name) then
+    local entityName = selectedEntity.name
+    if entityName == "entity-ghost" then
+        entityName = selectedEntity.ghost_name
+    end
+    if not EntityRoutingAttribute.from(entityName) then
         return
     end
-    local startingEntity = popNewStartingPosition(event.player_index)
+    local startingEntity
+    if playerSelectedStartingPositions[event.player_index] then
+        startingEntity = playerSelectedStartingPositions[event.player_index]:pop()
+    end
     if not startingEntity then
-        player.print("You haven't specified any starting belt yet. Place a belt as starting transport line, and then shift + right click on it to mark it as starting belt.")
+        player.print{"error-message.no-starting-point-selected"}
         return
     end
     logging.log("build line with config: " .. serpent.line(config))
@@ -111,12 +118,10 @@ local function setEndingTransportLine(event, config)
         end
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity, taskManager)
-    local errorMessage = transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, taskManager, config, player)
-    if errorMessage then
-        player.print(errorMessage)
-    end
+    transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, taskManager, config, player)
 end
 
+--- helper function
 --- @param config LineConnectConfig
 local function buildTransportLineWithConfig(config)
     return function(event)
