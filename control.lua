@@ -50,7 +50,11 @@ local function setStartingTransportLine(event)
     if not selectedEntity then
         return
     end
-    local transportLineType = EntityRoutingAttribute.from(selectedEntity.prototype.name)
+    local entityName = selectedEntity.name
+    if entityName == "entity-ghost" then
+        entityName = selectedEntity.ghost_name
+    end
+    local transportLineType = EntityRoutingAttribute.from(entityName)
     if transportLineType then
         if playerSelectedStartingPositions[event.player_index] == nil then
             playerSelectedStartingPositions[event.player_index] = SelectionQueue:new(event.player_index)
@@ -70,7 +74,11 @@ local function setEndingTransportLine(event, config)
     if not selectedEntity then
         return
     end
-    if not EntityRoutingAttribute.from(selectedEntity.prototype.name) then
+    local entityName = selectedEntity.name
+    if entityName == "entity-ghost" then
+        entityName = selectedEntity.ghost_name
+    end
+    if not EntityRoutingAttribute.from(entityName) then
         return
     end
     local startingEntity

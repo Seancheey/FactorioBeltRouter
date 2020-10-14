@@ -189,7 +189,11 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         reportToPlayer { "error-message.ending-entity-not-valid" }
         return
     end
-    local onGroundVersion = EntityRoutingAttribute.from(startingEntity.name).groundEntityPrototype
+    local entityName = startingEntity.name
+    if entityName == "entity-ghost" then
+        entityName = startingEntity.ghost_name
+    end
+    local onGroundVersion = EntityRoutingAttribute.from(entityName).groundEntityPrototype
     if onGroundVersion == nil then
         reportToPlayer { "error-message.find-line-group-failed", { startingEntity.name } }
         return

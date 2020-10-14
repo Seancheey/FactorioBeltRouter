@@ -40,13 +40,17 @@ local reverseDirection = DirectionHelper.reverseOf
 --- @param halfUndergroundPipeAsInput boolean since we cannot decide if a single underground pipe is input or output, by default we consider it as output
 --- @return PathUnit
 function PathUnit:fromLuaEntity(entity, halfUndergroundPipeAsInput)
+    local entityName = entity.name
+    if entityName == "entity-ghost" then
+        entityName = entity.ghost_name
+    end
     local newUnit = PathUnit:new {
-        name = entity.name,
+        name = entityName,
         position = Vector2D.fromPosition(entity.position),
         direction = entity.direction or defines.direction.north,
         distance = 1
     }
-    if halfUndergroundPipeAsInput and EntityRoutingAttribute.from(entity.name).lineType == TransportLineType.fluidLine and EntityRoutingAttribute.from(entity.name).isUnderground then
+    if halfUndergroundPipeAsInput and EntityRoutingAttribute.from(entityName).lineType == TransportLineType.fluidLine and EntityRoutingAttribute.from(entityName).isUnderground then
         newUnit.direction = reverseDirection(newUnit.direction)
     end
     return newUnit
