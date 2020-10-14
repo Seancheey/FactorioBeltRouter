@@ -9,7 +9,8 @@ local ArrayList = require("__MiscLib__/array_list")
 
 --- @class EntitySelectionInfo
 --- @field entity LuaEntity
---- @field polygonId number
+--- @field rectangleId number
+--- @field textId number
 
 --- @class SelectionQueue
 --- @field queue ArrayList|EntitySelectionInfo[] I use arraylist here since player won't select too much belts at the same time and linked list has extra memory cost
@@ -30,18 +31,45 @@ end
 
 --- @param entity LuaEntity
 function SelectionQueue:push(entity)
-    self.queue:add(entity)
+    local rectId = rendering.draw_rectangle {
+        surface = game.players[self.playerIndex].surface,
+        players = { game.players[self.playerIndex] },
+        color = { 0.1, 1, 0.1, 0.5 },
+        width = 2.5,
+        filled = false,
+        left_top = entity.selection_box.left_top,
+        right_bottom = entity.selection_box.right_bottom,
+        time_to_live = 60 * 60 -- 60tick/sec * 60sec/min = 1 min live time
+    }
+
+    local textId = rendering.draw_text {
+        surface = game.players[self.playerIndex].surface,
+        players = { game.players[self.playerIndex] },
+        text = #self + 1,
+        color = { 1, 1, 1, 0.9 },
+        target = entity,
+        time_to_live = 60 * 60
+    }
+    self.queue:add { entity = entity, rectangleId = rectId, textId = textId }
 end
 
 --- @return LuaEntity
 function SelectionQueue:pop()
     if #self.queue > 0 then
-        return self.queue:popLeft()
+        --- @type EntitySelectionInfo
+        local selection = self.queue:popLeft()
+        rendering.destroy(selection.rectangleId)
+        rendering.destroy(selection.textId)
+        -- update other selection's text number
+        for i, otherSelection in ipairs(self.queue) do
+            rendering.set_text(otherSelection.textId, i)
+        end
+        return selection.entity
     end
 end
 
-function SelectionQueue:remove(index)
-    return self.queue:pop(index)
+function SelectionQueue:removeIndex(index)
+    return self.queue:pop(index).entity
 end
 
 function SelectionQueue:__len()
