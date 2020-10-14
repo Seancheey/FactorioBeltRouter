@@ -7,8 +7,6 @@
 
 --- @alias player_index number
 
---- @type ArrayList
-local ArrayList = require("__MiscLib__/array_list")
 --- @type Copier
 local Copy = require("__MiscLib__/copy")
 --- @type Logger
@@ -18,14 +16,17 @@ local TransportLineConnector = require("transport_line_connector")
 local releaseMode = require("release")
 --- @type EntityRoutingAttribute
 local EntityRoutingAttribute = require("entity_routing_attribute")
+--- @type SelectionQueue
+local SelectionQueue = require("selection_queue")
+--- @type AsyncTaskManager
+local AsyncTaskManager = require("__MiscLib__/async_task")
+
 --- @type table<string, boolean>
 local loggingCategories = {
     reward = false,
     placing = false,
     transportType = false
 }
---- @type AsyncTaskManager
-local AsyncTaskManager = require("__MiscLib__/async_task")
 
 local taskManager = AsyncTaskManager:new()
 taskManager:resolveTaskEveryNthTick(1)
@@ -39,19 +40,19 @@ if releaseMode then
     logging.disableCategory(logging.V)
 end
 
---- @type table<player_index, ArrayList|LuaEntity[]>
+--- @type table<player_index, SelectionQueue>
 local playerSelectedStartingPositions = {}
 
 local function pushNewStartingPosition(player_index, entity)
     if playerSelectedStartingPositions[player_index] == nil then
-        playerSelectedStartingPositions[player_index] = ArrayList.new()
+        playerSelectedStartingPositions[player_index] = SelectionQueue:new(player_index)
     end
-    playerSelectedStartingPositions[player_index]:add(entity)
+    playerSelectedStartingPositions[player_index]:push(entity)
 end
 
 local function popNewStartingPosition(player_index)
     if playerSelectedStartingPositions[player_index] then
-        return playerSelectedStartingPositions[player_index]:popLeft()
+        return playerSelectedStartingPositions[player_index]:pop()
     end
 end
 
