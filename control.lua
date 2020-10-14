@@ -13,6 +13,7 @@ local Copy = require("__MiscLib__/copy")
 local logging = require("__MiscLib__/logging")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
+--- @type boolean
 local releaseMode = require("release")
 --- @type EntityRoutingAttribute
 local EntityRoutingAttribute = require("entity_routing_attribute")
@@ -21,7 +22,7 @@ local SelectionQueue = require("selection_queue")
 --- @type AsyncTaskManager
 local AsyncTaskManager = require("__MiscLib__/async_task")
 
---- @type table<string, boolean>
+--- @type table<string, boolean> simple table for easy toggling debugging groups
 local loggingCategories = {
     reward = false,
     placing = false,
@@ -43,19 +44,6 @@ end
 --- @type table<player_index, SelectionQueue>
 local playerSelectedStartingPositions = {}
 
-local function pushNewStartingPosition(player_index, entity)
-    if playerSelectedStartingPositions[player_index] == nil then
-        playerSelectedStartingPositions[player_index] = SelectionQueue:new(player_index)
-    end
-    playerSelectedStartingPositions[player_index]:push(entity)
-end
-
-local function popNewStartingPosition(player_index)
-    if playerSelectedStartingPositions[player_index] then
-        return playerSelectedStartingPositions[player_index]:pop()
-    end
-end
-
 local function setStartingTransportLine(event)
     local player = game.players[event.player_index]
     local selectedEntity = player.selected
@@ -64,8 +52,15 @@ local function setStartingTransportLine(event)
     end
     local transportLineType = EntityRoutingAttribute.from(selectedEntity.prototype.name)
     if transportLineType then
-        pushNewStartingPosition(event.player_index, selectedEntity)
-        player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
+        if playerSelectedStartingPositions[event.player_index] == nil then
+            playerSelectedStartingPositions[event.player_index] = SelectionQueue:new(event.player_index)
+        end
+        if playerSelectedStartingPositions[event.player_index]:tryRemoveDuplicate(selectedEntity) then
+            player.print("Removed selection")
+        else
+            playerSelectedStartingPositions[event.player_index]:push(selectedEntity)
+            player.print("queued one " .. selectedEntity.name .. " into connection waiting list. There are " .. #playerSelectedStartingPositions[event.player_index] .. " belts in connection waiting list")
+        end
     end
 end
 
@@ -78,7 +73,10 @@ local function setEndingTransportLine(event, config)
     if not EntityRoutingAttribute.from(selectedEntity.prototype.name) then
         return
     end
-    local startingEntity = popNewStartingPosition(event.player_index)
+    local startingEntity
+    if playerSelectedStartingPositions[event.player_index] then
+        startingEntity = playerSelectedStartingPositions[event.player_index]:pop()
+    end
     if not startingEntity then
         player.print("You haven't specified any starting belt yet. Place a belt as starting transport line, and then shift + right click on it to mark it as starting belt.")
         return
@@ -118,6 +116,7 @@ local function setEndingTransportLine(event, config)
     end
 end
 
+--- helper function
 --- @param config LineConnectConfig
 local function buildTransportLineWithConfig(config)
     return function(event)

@@ -60,16 +60,40 @@ function SelectionQueue:pop()
         local selection = self.queue:popLeft()
         rendering.destroy(selection.rectangleId)
         rendering.destroy(selection.textId)
-        -- update other selection's text number
-        for i, otherSelection in ipairs(self.queue) do
-            rendering.set_text(otherSelection.textId, i)
-        end
+        self:__updateLabelNumbers()
         return selection.entity
     end
 end
 
+--- @param index number
+--- @return LuaEntity|nil
 function SelectionQueue:removeIndex(index)
-    return self.queue:pop(index).entity
+    --- @type EntitySelectionInfo
+    local removedSelection = self.queue:pop(index)
+    if removedSelection then
+        rendering.destroy(removedSelection.rectangleId)
+        rendering.destroy(removedSelection.textId)
+        self:__updateLabelNumbers()
+        return removedSelection.entity
+    end
+end
+
+--- @param entity LuaEntity
+--- @return boolean true if success
+function SelectionQueue:tryRemoveDuplicate(entity)
+    for i, selection in ipairs(self.queue) do
+        if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+            self:removeIndex(i)
+            return true
+        end
+    end
+    return false
+end
+
+function SelectionQueue:__updateLabelNumbers()
+    for i, otherSelection in ipairs(self.queue) do
+        rendering.set_text(otherSelection.textId, i)
+    end
 end
 
 function SelectionQueue:__len()
