@@ -281,14 +281,16 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
             tryNum = tryNum + 1
         end
         totalTryNum = totalTryNum + tryNum
-        if priorityQueue:isEmpty() then
-            self:debug_visited_position(minDistanceDict)
-            reportToPlayer { "error-message.path-find-terminated-early" }
-        elseif totalTryNum >= maxTryNum then
-            self:debug_visited_position(minDistanceDict)
-            reportToPlayer { "error-message.maximum-trial-reached", tostring(maxTryNum) }
-        elseif not foundPath then
-            asyncTaskManager:pushTask(tryFindPath, taskPriority)
+        if not foundPath then
+            if priorityQueue:isEmpty() then
+                self:debug_visited_position(minDistanceDict)
+                reportToPlayer { "error-message.path-find-terminated-early" }
+            elseif totalTryNum >= maxTryNum then
+                self:debug_visited_position(minDistanceDict)
+                reportToPlayer { "error-message.maximum-trial-reached", tostring(maxTryNum) }
+            else
+                asyncTaskManager:pushTask(tryFindPath, taskPriority)
+            end
         end
     end
     asyncTaskManager:pushTask(tryFindPath, taskPriority)
