@@ -144,9 +144,9 @@ function PathUnit:possibleNextPathUnits(allowUnderground)
 end
 
 --- @param allowUnderground boolean
---- @param canPruneNonMaxUndergroundCandidates boolean
+--- @param canPlaceEntityFunc fun()
 --- @return PathUnit[]
-function PathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergroundCandidates)
+function PathUnit:possiblePrevPathUnits(allowUnderground, canPlaceEntityFunc)
     local attribute = EntityRoutingAttribute.from(self.name)
     local undergroundPrototype = attribute.undergroundEntityPrototype
     local onGroundPrototype = attribute.groundEntityPrototype
@@ -157,6 +157,17 @@ function PathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergro
     for _, pointPos in ipairs(attribute:getAllPointPositions(self.position, self.direction)) do
         for _, posDiffDirection in ipairs(posDiffDirections) do
             local posDiffVector = Vector2D.fromDirection(posDiffDirection)
+            -- only when the whole underground belt line is clear, we can safely prune others
+            local canPruneNonMaxUndergroundCandidates = true
+            if allowUnderground then
+                local undergroundDistance = attribute.undergroundEntityPrototype.max_underground_distance
+                for distance = 1, undergroundDistance + 2 do
+                    if not canPlaceEntityFunc(self.position + posDiffVector:scale(distance)) then
+                        canPruneNonMaxUndergroundCandidates = false
+                        break
+                    end
+                end
+            end
             if allowUnderground then
                 -- adds underground candidates
                 for underground_distance = undergroundPrototype.max_underground_distance + 1, 3, -1 do

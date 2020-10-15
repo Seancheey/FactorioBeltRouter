@@ -4,6 +4,7 @@ Date: 2020.10.15
   Bugfixes:
     - Fix a bug that might make transport route overlap with itself
     - Fix a bug that might report unable to find path but path entity ghosts are actually created
+    - Fix a bug that might force underground belt to use maximum underground length in some situations
 
 ---------------------------------------------------------------------------------------------------
 Version: 0.7.0

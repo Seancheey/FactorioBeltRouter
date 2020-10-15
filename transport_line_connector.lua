@@ -302,20 +302,7 @@ end
 function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
     assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
 
-    local canPruneNonMaxUndergroundCandidates = true
-    -- only when the whole underground belt line is clear, we can safely prune others
-    if allowUnderground then
-        local attribute = EntityRoutingAttribute.from(transportChain.pathUnit.name)
-        local undergroundDistance = attribute.undergroundEntityPrototype.max_underground_distance
-        local displacementDirection = Vector2D.fromDirection(transportChain.pathUnit.direction):reverse()
-        for distance = 1, undergroundDistance + 2 do
-            if not self.canPlaceEntityFunc(transportChain.pathUnit.position + displacementDirection:scale(distance)) then
-                canPruneNonMaxUndergroundCandidates = false
-                break
-            end
-        end
-    end
-    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergroundCandidates):map(
+    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, self.canPlaceEntityFunc):map(
             function(pathUnit)
                 return TransportChain.new(pathUnit, transportChain, preferOnGround)
             end
