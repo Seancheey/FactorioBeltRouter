@@ -1,6 +1,6 @@
-## Beta Preview for Belt Router
+## Belt Router
 
-BeltRouter helps you path find belt routes from starting point (shift + right click) to ending point (shift + left click/shift + ctrl + left click) and creates a trail of belt ghosts.
+BeltRouter helps you path-find belt routes from starting point (shift + right click) to ending point (shift + left click/shift + ctrl + left click) and creates a trail of belt ghosts.
 
 ![](demo/Tutorial_clickStart.png)
 
@@ -25,20 +25,15 @@ Above key bindings can always be changed via *Settings -> Controls -> Mods -> Be
 
 ## Additional Notes
 
-* You can also select multiple belts at the same time: https://imgur.com/a/RixRxmr   https://imgur.com/a/aBp35yp
+* You can also select multiple belts at the same time:
+  ![](demo/Tutorial_batchStartSelect.png)
+  ![](demo/Tutorial_batchEndSelect.png)
 
 * You can also increase path finding speed, or increase path finding max reach by going to *Mod settings -> Per player -> Belt Router*
 
 * You can also route pipe with same operation. 
 
 * Note that while most of the modded belts are supported, not many modded pipes are supported and trying to route them may create unexpected behavior. If you want a specific mod belt/pipe to be supported, please add a new thread in Discussion section.
-
-## TODO List
-
-As title suggests, this mod is currently in beta preview, there are many bugs and caveats in the current version. Here lists my TODO list for the mod:
-
-* TODO: Use two-way A* algorithm for early detecting unreachable condition and faster routing
-* TODO: Fix bug that might makes path finder produce overlapping path for complex paths
 
 Special thanks to @ChrislyBear for fixing bug about building belts may collides with entity ghosts, @F0x06, @RusselRaZe and @Xiomax for bug reporting, @slippycheeze for UI/algorithm suggestions!
 

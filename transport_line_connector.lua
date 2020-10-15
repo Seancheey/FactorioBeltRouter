@@ -57,8 +57,12 @@ end
 --- @field pathUnit PathUnit
 --- @field prevChain TransportChain
 --- @field cumulativeDistance number
+--- @field leftCumulativeTurns number can't be negative, if ever >=3, we enforce collision check
+--- @field rightCumulativeTurns number can't be negative, if ever >=3, we enforce collision check
+--- @field enforceCollisionCheck boolean if true, we must check if the transport chain collide with any of previous chain
 --- @type TransportChain
 local TransportChain = {}
+TransportChain.__index = TransportChain
 
 --- @param pathUnit PathUnit
 --- @param prevChain TransportChain
@@ -70,11 +74,44 @@ function TransportChain.new(pathUnit, prevChain, preferOnGround)
     if unitDistance > 1 and preferOnGround then
         unitDistance = 2 * unitDistance
     end
-    return setmetatable({
-        pathUnit = pathUnit,
-        prevChain = prevChain,
-        cumulativeDistance = prevChain and (prevChain.cumulativeDistance + unitDistance) or 0,
-    }, { __index = TransportChain })
+    if prevChain then
+        local directionDifference = (pathUnit.direction - prevChain.pathUnit.direction + 4) % 8 - 4
+        local leftTurnNum = prevChain.leftCumulativeTurns
+        local rightTurnNum = prevChain.rightCumulativeTurns
+        local enforceCollisionCheck = prevChain.enforceCollisionCheck
+        if not enforceCollisionCheck then
+            if directionDifference == 2 then
+                -- right turn
+                rightTurnNum = rightTurnNum + 1
+                leftTurnNum = leftTurnNum == 0 and leftTurnNum or leftTurnNum - 1
+            elseif directionDifference == -2 then
+                -- left turn
+                leftTurnNum = leftTurnNum + 1
+                rightTurnNum = rightTurnNum == 0 and rightTurnNum or rightTurnNum - 1
+            end
+            -- if turn num >= 3, it means there is a possibility for the transport line to form a circle and thus have a chance of self-colliding
+            if rightTurnNum >= 3 or leftTurnNum >= 3 then
+                enforceCollisionCheck = true
+            end
+        end
+        return setmetatable({
+            pathUnit = pathUnit,
+            prevChain = prevChain,
+            cumulativeDistance = (prevChain.cumulativeDistance + unitDistance) or 0,
+            enforceCollisionCheck = enforceCollisionCheck,
+            leftCumulativeTurns = leftTurnNum,
+            rightCumulativeTurns = rightTurnNum
+        }, TransportChain)
+    else
+        return setmetatable({
+            pathUnit = pathUnit,
+            prevChain = prevChain,
+            cumulativeDistance = 0,
+            leftCumulativeTurns = 0,
+            rightCumulativeTurns = 0,
+            enforceCollisionCheck = false
+        }, TransportChain)
+    end
 end
 
 --- @param placeFunc fun(entity: LuaEntityPrototype)
@@ -239,62 +276,52 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 logging.log("Path find algorithm explored " .. tostring(totalTryNum + tryNum) .. " blocks to find solution")
                 foundPath = true
             end
-            for _, pathUnit in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit)) do
-                local newChain = TransportChain.new(pathUnit, transportChain, preferOnGround)
-                priorityQueue:push(self:estimateDistance(pathUnit, startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
+            for _, newChain in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit, preferOnGround)) do
+                priorityQueue:push(self:estimateDistance(newChain.pathUnit, startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
         end
         totalTryNum = totalTryNum + tryNum
-        if priorityQueue:isEmpty() then
-            self:debug_visited_position(minDistanceDict)
-            reportToPlayer { "error-message.path-find-terminated-early" }
-        elseif totalTryNum >= maxTryNum then
-            self:debug_visited_position(minDistanceDict)
-            reportToPlayer { "error-message.maximum-trial-reached", tostring(maxTryNum) }
-        elseif not foundPath then
-            asyncTaskManager:pushTask(tryFindPath, taskPriority)
+        if not foundPath then
+            if priorityQueue:isEmpty() then
+                self:debug_visited_position(minDistanceDict)
+                reportToPlayer { "error-message.path-find-terminated-early" }
+            elseif totalTryNum >= maxTryNum then
+                self:debug_visited_position(minDistanceDict)
+                reportToPlayer { "error-message.maximum-trial-reached", tostring(maxTryNum) }
+            else
+                asyncTaskManager:pushTask(tryFindPath, taskPriority)
+            end
         end
     end
     asyncTaskManager:pushTask(tryFindPath, taskPriority)
 end
 
 --- @param transportChain TransportChain
---- @return PathUnit[]
-function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity)
-    assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity)
+--- @return TransportChain[]
+function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
+    assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
 
-    local canPruneNonMaxUndergroundCandidates = true
-    -- only when the whole underground belt line is clear, we can safely prune others
-    if allowUnderground then
-        local attribute = EntityRoutingAttribute.from(transportChain.pathUnit.name)
-        local undergroundDistance = attribute.undergroundEntityPrototype.max_underground_distance
-        local displacementDirection = Vector2D.fromDirection(transportChain.pathUnit.direction):reverse()
-        for distance = 1, undergroundDistance + 2 do
-            if not self.canPlaceEntityFunc(transportChain.pathUnit.position + displacementDirection:scale(distance)) then
-                canPruneNonMaxUndergroundCandidates = false
-                break
+    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, self.canPlaceEntityFunc):map(
+            function(pathUnit)
+                return TransportChain.new(pathUnit, transportChain, preferOnGround)
             end
-        end
-    end
-    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, canPruneNonMaxUndergroundCandidates)
+    )
     local legalCandidates = ArrayList.new()
-    for _, pathUnit in ipairs(candidates) do
-        if self:testCanPlace(pathUnit, transportChain.cumulativeDistance + pathUnit.distance, minDistanceDict, startingEntity, transportChain) then
-            legalCandidates:add(pathUnit)
+    for _, newChain in ipairs(candidates) do
+        if self:testCanPlace(newChain, minDistanceDict, startingEntity) then
+            legalCandidates:add(newChain)
         end
     end
     return legalCandidates
 end
 
---- @param pathUnit PathUnit
---- @param cumulativeDistance number
+--- @param newChain TransportChain
 --- @param minDistanceDict MinDistanceDict
 --- @param startingEntity LuaEntitySpec
---- @param transportChain TransportChain
-function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
-    assertNotNull(self, pathUnit, cumulativeDistance, minDistanceDict, startingEntity, transportChain)
-
+function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingEntity)
+    assertNotNull(self, newChain, minDistanceDict, startingEntity)
+    local pathUnit = newChain.pathUnit
     local entityList = pathUnit:toEntitySpecs()
 
     for _, entity in ipairs(entityList) do
@@ -356,6 +383,21 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
         end
     end
 
+    if newChain.enforceCollisionCheck then
+        -- check the transport chain doesn't collide with itself
+        -- TODO: although I've optimized this check only to be done when necessary, this is still costly and performance degrades even more for long+curvy path. Any possibility of optimizing even more?
+        local testPositions = newChain.pathUnit:toEntitySpecs()
+        local testingChain = newChain.prevChain
+        while testingChain do
+            for _, testSpec in ipairs(testPositions) do
+                if testSpec.position == testingChain.pathUnit.position then
+                    return false
+                end
+            end
+            testingChain = testingChain.prevChain
+        end
+    end
+
     if closeToFinal then
         return true
     else
@@ -363,8 +405,8 @@ function TransportLineConnector:testCanPlace(pathUnit, cumulativeDistance, minDi
         local distanceSmallerThanAny = false
         for _, sourceUnit in ipairs(pathUnit:possiblePrevPathUnits(false)) do
             local curMinDistance = minDistanceDict:get(sourceUnit.position, sourceUnit.direction)
-            if curMinDistance == nil or curMinDistance > cumulativeDistance then
-                minDistanceDict:put(sourceUnit.position, sourceUnit.direction, cumulativeDistance)
+            if curMinDistance == nil or curMinDistance > newChain.cumulativeDistance then
+                minDistanceDict:put(sourceUnit.position, sourceUnit.direction, newChain.cumulativeDistance)
                 distanceSmallerThanAny = true
             end
         end
@@ -387,7 +429,7 @@ function TransportLineConnector:estimateDistance(testPathUnit, targetPos, reward
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
     local directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
-    logging.log("reward = " .. tostring(positionReward), "reward")
+    logging.log("position reward = " .. tostring(positionReward), "reward")
     return (dx + dy + 1 - positionReward - directionReward) * 1.1 -- slightly encourage greedy-first
 end
 
