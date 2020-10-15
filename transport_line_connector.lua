@@ -89,6 +89,7 @@ function TransportChain.new(pathUnit, prevChain, preferOnGround)
                 leftTurnNum = leftTurnNum + 1
                 rightTurnNum = rightTurnNum == 0 and rightTurnNum or rightTurnNum - 1
             end
+            -- if turn num >= 3, it means there is a possibility for the transport line to form a circle and thus have a chance of self-colliding
             if rightTurnNum >= 3 or leftTurnNum >= 3 then
                 enforceCollisionCheck = true
             end
@@ -396,6 +397,8 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
     end
 
     if newChain.enforceCollisionCheck then
+        -- check the transport chain doesn't collide with itself
+        -- TODO: although I've optimized this check only to be done when necessary, this is still costly and performance degrades even more for long+curvy path. Any possibility of optimizing even more?
         local testPositions = newChain.pathUnit:toEntitySpecs()
         local testingChain = newChain.prevChain
         while testingChain do
