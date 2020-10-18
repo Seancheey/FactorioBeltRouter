@@ -1,3 +1,9 @@
+Version: 1.0.1
+Date: 2020.10.18
+Optimisations:
+    - Slightly modify keymap descriptions to be more clear
+    - Increase the default path finding speed from 10 to 15, but it only applies to new save files.
+
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.0
 Date: 2020.10.15

@@ -9,7 +9,7 @@ data:extend{
         type = "int-setting",
         setting_type = "runtime-per-user",
         name = "path-finding-test-per-tick",
-        default_value = 10,
+        default_value = 15,
         minimum_value = 1,
         maximum_value = 100
     },
