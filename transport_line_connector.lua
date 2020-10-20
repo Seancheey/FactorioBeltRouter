@@ -71,8 +71,17 @@ TransportChain.__index = TransportChain
 function TransportChain.new(pathUnit, prevChain, preferOnGround)
     assertNotNull(pathUnit)
     local unitDistance = pathUnit.distance
-    if unitDistance > 1 and preferOnGround then
-        unitDistance = 2 * unitDistance
+    -- if prefer on ground, punish underground belts
+    if unitDistance > 1 then
+        if preferOnGround then
+            unitDistance = 2 * unitDistance
+        else
+            unitDistance = unitDistance * 0.999999
+        end
+    end
+    -- reward a little to to not turning
+    if prevChain and pathUnit.direction == prevChain.pathUnit.direction then
+        unitDistance = unitDistance - 0.000001
     end
     if prevChain then
         local directionDifference = (pathUnit.direction - prevChain.pathUnit.direction + 4) % 8 - 4
@@ -183,6 +192,7 @@ end
 --- @field canPlaceEntityFunc fun(position: Vector2D): boolean
 --- @field placeEntityFunc fun(entity: LuaEntityPrototype)
 --- @field getEntityFunc fun(position: Vector2D): LuaEntity
+--- @field greedyLevel number
 --- @type TransportLineConnector
 local TransportLineConnector = {}
 
@@ -198,7 +208,8 @@ function TransportLineConnector.new(canPlaceEntityFunc, placeEntityFunc, getEnti
             { canPlaceEntityFunc = canPlaceEntityFunc,
               placeEntityFunc = placeEntityFunc,
               getEntityFunc = getEntityFunc,
-              asyncTaskManager = asyncTaskManager
+              asyncTaskManager = asyncTaskManager,
+              greedyLevel = 1.05 -- just a initial value, will be overridden by player's own setting
             }, TransportLineConnector)
 end
 
@@ -241,6 +252,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local allowUnderground, preferOnGround = self:parseConfig(additionalConfig)
     local minDistanceDict = MinDistanceDict.new()
     local priorityQueue = MinHeap.new()
+    self.greedyLevel = settings.get_player_settings(player)["greedy-level"].value
 
     -- Here starts the main logic of function
     local startingEntityTargets = startingUnit:possibleNextPathUnits(false)
@@ -424,13 +436,13 @@ end
 function TransportLineConnector:estimateDistance(testPathUnit, targetPos, rewardDirection)
     local dx = math.abs(testPathUnit.position.x - targetPos.x)
     local dy = math.abs(testPathUnit.position.y - targetPos.y)
-    -- break A* cost tie by rewarding going to same x/y-level, but reward is no more than 1
-    local positionReward = 1 / (dy + 1)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
-    local directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
-    logging.log("position reward = " .. tostring(positionReward), "reward")
-    return (dx + dy + 1 - positionReward - directionReward) * 1.1 -- slightly encourage greedy-first
+    local directionReward = 0
+    if dx + dy <= 5 then
+        directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+    end
+    return (dx + dy + 1 - directionReward) * self.greedyLevel -- slightly encourage greedy-first
 end
 
 --- @param minDistanceDict MinDistanceDict

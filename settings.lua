@@ -4,7 +4,7 @@
 --- DateTime: 10/8/20 2:36 AM
 ---
 
-data:extend{
+data:extend {
     {
         type = "int-setting",
         setting_type = "runtime-per-user",
@@ -20,5 +20,13 @@ data:extend{
         default_value = 10000,
         minimum_value = 1000,
         maximum_value = 1000000
-    }
+    },
+    {
+        type = "double-setting",
+        setting_type = "runtime-per-user",
+        name = "greedy-level",
+        default_value = 1.1,
+        minimum_value = 1,
+        maximum_value = 2
+    },
 }
