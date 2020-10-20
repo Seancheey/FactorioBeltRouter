@@ -81,7 +81,7 @@ function TransportChain.new(pathUnit, prevChain, preferOnGround)
     end
     -- reward a little to to not turning
     if prevChain and pathUnit.direction == prevChain.pathUnit.direction then
-        unitDistance = unitDistance + 0.000001
+        unitDistance = unitDistance - 0.000001
     end
     if prevChain then
         local directionDifference = (pathUnit.direction - prevChain.pathUnit.direction + 4) % 8 - 4
@@ -438,7 +438,10 @@ function TransportLineConnector:estimateDistance(testPathUnit, targetPos, reward
     local dy = math.abs(testPathUnit.position.y - targetPos.y)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
-    local directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+    local directionReward = 0
+    if dx + dy <= 5 then
+        directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+    end
     return (dx + dy + 1 - directionReward) * self.greedyLevel -- slightly encourage greedy-first
 end
 
