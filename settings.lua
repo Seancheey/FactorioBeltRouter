@@ -25,7 +25,7 @@ data:extend {
         type = "double-setting",
         setting_type = "runtime-per-user",
         name = "greedy-level",
-        default_value = 1.05,
+        default_value = 1.1,
         minimum_value = 1,
         maximum_value = 2
     },
