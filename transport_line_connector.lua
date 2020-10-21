@@ -148,7 +148,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         local foundPath = false
         local tryNum = 0
         while not priorityQueue:isEmpty() and tryNum < batchSize and not foundPath do
-            --- @type TransportChain
+            --- @type PathNode
             local transportChain = priorityQueue:pop().val
             if tryNum == 0 then
                 player.create_local_flying_text { text = { "info-message.path-find-tag" }, position = transportChain.pathUnit.position, time_to_live = 15 }
@@ -179,8 +179,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     asyncTaskManager:pushTask(tryFindPath, taskPriority)
 end
 
---- @param transportChain TransportChain
---- @return TransportChain[]
+--- @param transportChain PathNode
+--- @return PathNode[]
 function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
     assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
 
@@ -198,7 +198,7 @@ function TransportLineConnector:surroundingCandidates(transportChain, minDistanc
     return legalCandidates
 end
 
---- @param newChain TransportChain
+--- @param newChain PathNode
 --- @param minDistanceDict MinDistanceDict
 --- @param startingEntity LuaEntitySpec
 function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingEntity)
@@ -309,8 +309,9 @@ function TransportLineConnector:estimateDistance(testPathSegment, targetPos, rew
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
     local directionReward = 0
-    if dx + dy <= 5 then
+    if (dx + dy) <= 3 then
         directionReward = -1 * ((testPathSegment.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+        logging.log("direction reward = " .. tostring(directionReward), "reward")
     end
     return (dx + dy + 1 - directionReward) * self.greedyLevel -- slightly encourage greedy-first
 end
