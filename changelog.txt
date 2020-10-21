@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.1
+Date: 2020.10.21
+  Optimisations:
+    - Fine tune belts routing to optimize for 4-way belts situation. Encourage belts to go straight 3 blocks first, if applies.
+    - Automatically remove the starting point belt/pipe if it is mined/marked for deconstruction
+    - Now algorithm supports ending position to as an output underground belt
+    - Migrated most path finding algorithm to MiscLib to be used by Blueprinter mod in the future.
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.0
 Date: 2020.10.20
   Optimisations:
