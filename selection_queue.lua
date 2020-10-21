@@ -82,9 +82,13 @@ end
 --- @return boolean true if success
 function SelectionQueue:tryRemoveDuplicate(entity)
     for i, selection in ipairs(self.queue) do
-        if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+        if selection.valid then
+            if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+                self:removeIndex(i)
+                return true
+            end
+        else
             self:removeIndex(i)
-            return true
         end
     end
     return false
