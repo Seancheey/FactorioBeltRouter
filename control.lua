@@ -11,16 +11,17 @@
 local Copy = require("__MiscLib__/copy")
 --- @type Logger
 local logging = require("__MiscLib__/logging")
+--- @type EntityRoutingAttribute
+local EntityRoutingAttribute = require("__MiscLib__/path_find/entity_routing_attribute")
+--- @type AsyncTaskManager
+local AsyncTaskManager = require("__MiscLib__/async_task")
+
+--- @type SelectionQueue
+local SelectionQueue = require("selection_queue")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
 --- @type boolean
 local releaseMode = require("release")
---- @type EntityRoutingAttribute
-local EntityRoutingAttribute = require("entity_routing_attribute")
---- @type SelectionQueue
-local SelectionQueue = require("selection_queue")
---- @type AsyncTaskManager
-local AsyncTaskManager = require("__MiscLib__/async_task")
 
 --- @type table<string, boolean> simple table for easy toggling debugging groups
 local loggingCategories = {
@@ -32,13 +33,15 @@ local loggingCategories = {
 local taskManager = AsyncTaskManager:new()
 taskManager:resolveTaskEveryNthTick(1)
 
-for category, enable in pairs(loggingCategories) do
-    logging.addCategory(category, releaseMode and false or enable)
-end
-if releaseMode then
-    logging.disableCategory(logging.D)
-    logging.disableCategory(logging.I)
-    logging.disableCategory(logging.V)
+local function setupLogging()
+    for category, enable in pairs(loggingCategories) do
+        logging.addCategory(category, releaseMode and false or enable)
+    end
+    if releaseMode then
+        logging.disableCategory(logging.D)
+        logging.disableCategory(logging.I)
+        logging.disableCategory(logging.V)
+    end
 end
 
 --- @type table<player_index, SelectionQueue>
@@ -60,10 +63,10 @@ local function setStartingTransportLine(event)
             playerSelectedStartingPositions[event.player_index] = SelectionQueue:new(event.player_index)
         end
         if playerSelectedStartingPositions[event.player_index]:tryRemoveDuplicate(selectedEntity) then
-            player.print{"info-message.remove-starting-point"}
+            player.print { "info-message.remove-starting-point" }
         else
             playerSelectedStartingPositions[event.player_index]:push(selectedEntity)
-            player.print{"info-message.push-entity"}
+            player.print { "info-message.push-entity" }
         end
     end
 end
@@ -86,7 +89,7 @@ local function setEndingTransportLine(event, config)
         startingEntity = playerSelectedStartingPositions[event.player_index]:pop()
     end
     if not startingEntity then
-        player.print{"error-message.no-starting-point-selected"}
+        player.print { "error-message.no-starting-point-selected" }
         return
     end
     logging.log("build line with config: " .. serpent.line(config))
@@ -129,7 +132,24 @@ local function buildTransportLineWithConfig(config)
     end
 end
 
+local function tryRemoveSelectedStartingPoint(eventWithEntity)
+    local player_index = eventWithEntity.player_index
+    --- @type LuaEntity
+    local entity = eventWithEntity.entity
+    if playerSelectedStartingPositions[player_index] and EntityRoutingAttribute.from(entity.name) then
+        logging.log("try remove entity: " .. serpent.line(entity.position))
+        playerSelectedStartingPositions[player_index]:tryRemoveDuplicate(entity)
+    end
+end
+
 script.on_event("select-line-starting-point", setStartingTransportLine)
 script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = false })
 script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false })
 script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })
+script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
+script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
+setupLogging()
+
+if script.active_mods["gvv"] then
+    require("__gvv__.gvv")()
+end

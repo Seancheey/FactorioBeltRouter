@@ -15,14 +15,19 @@ local ArrayList = require("__MiscLib__/array_list")
 local MinHeap = require("__MiscLib__/minheap")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
-local release_mode = require("release")
 --- @type EntityRoutingAttribute
-local EntityRoutingAttribute = require("entity_routing_attribute")
---- @type PathUnit
-local PathUnit = require("path_unit")
-local DirectionHelper = {}
+local EntityRoutingAttribute = require("__MiscLib__/path_find/entity_routing_attribute")
+--- @type PathSegment
+local PathSegment = require("__MiscLib__/path_find/path_segment")
 --- @type TransportLineType
-local TransportLineType = require("enum/line_type")
+local TransportLineType = require("__MiscLib__/enum/line_type")
+--- @type PathNode
+local PathNode = require("__MiscLib__/path_find/path_node")
+--- @type MinDistanceDict
+local MinDistanceDict = require("__MiscLib__/path_find/min_distance_dict")
+local release_mode = require("release")
+
+local DirectionHelper = {}
 
 --- @param entity LuaEntity
 --- @return Vector2D
@@ -49,141 +54,6 @@ function DirectionHelper.neighboringEntities(position, getEntityFunc)
         end
     end
     return entities
-end
-
---- Transport chain is an intermediate generated backward linked list that represents a whole transport line.
---- Each node in this linked list represents either one belt, or a pair of underground belt. (in this case the "entity" field represents the input belt, and output belt is inferred by entityDistance + direction)
---- @class TransportChain
---- @field pathUnit PathUnit
---- @field prevChain TransportChain
---- @field cumulativeDistance number
---- @field leftCumulativeTurns number can't be negative, if ever >=3, we enforce collision check
---- @field rightCumulativeTurns number can't be negative, if ever >=3, we enforce collision check
---- @field enforceCollisionCheck boolean if true, we must check if the transport chain collide with any of previous chain
---- @type TransportChain
-local TransportChain = {}
-TransportChain.__index = TransportChain
-
---- @param pathUnit PathUnit
---- @param prevChain TransportChain
---- @param preferOnGround boolean if enabled, will apply A* distance punishment to underground belts
---- @return TransportChain
-function TransportChain.new(pathUnit, prevChain, preferOnGround)
-    assertNotNull(pathUnit)
-    local unitDistance = pathUnit.distance
-    -- if prefer on ground, punish underground belts
-    if unitDistance > 1 then
-        if preferOnGround then
-            unitDistance = 2 * unitDistance
-        else
-            unitDistance = unitDistance * 0.999999
-        end
-    end
-    -- reward a little to to not turning
-    if prevChain and pathUnit.direction == prevChain.pathUnit.direction then
-        unitDistance = unitDistance - 0.000001
-    end
-    if prevChain then
-        local directionDifference = (pathUnit.direction - prevChain.pathUnit.direction + 4) % 8 - 4
-        local leftTurnNum = prevChain.leftCumulativeTurns
-        local rightTurnNum = prevChain.rightCumulativeTurns
-        local enforceCollisionCheck = prevChain.enforceCollisionCheck
-        if not enforceCollisionCheck then
-            if directionDifference == 2 then
-                -- right turn
-                rightTurnNum = rightTurnNum + 1
-                leftTurnNum = leftTurnNum == 0 and leftTurnNum or leftTurnNum - 1
-            elseif directionDifference == -2 then
-                -- left turn
-                leftTurnNum = leftTurnNum + 1
-                rightTurnNum = rightTurnNum == 0 and rightTurnNum or rightTurnNum - 1
-            end
-            -- if turn num >= 3, it means there is a possibility for the transport line to form a circle and thus have a chance of self-colliding
-            if rightTurnNum >= 3 or leftTurnNum >= 3 then
-                enforceCollisionCheck = true
-            end
-        end
-        return setmetatable({
-            pathUnit = pathUnit,
-            prevChain = prevChain,
-            cumulativeDistance = (prevChain.cumulativeDistance + unitDistance) or 0,
-            enforceCollisionCheck = enforceCollisionCheck,
-            leftCumulativeTurns = leftTurnNum,
-            rightCumulativeTurns = rightTurnNum
-        }, TransportChain)
-    else
-        return setmetatable({
-            pathUnit = pathUnit,
-            prevChain = prevChain,
-            cumulativeDistance = 0,
-            leftCumulativeTurns = 0,
-            rightCumulativeTurns = 0,
-            enforceCollisionCheck = false
-        }, TransportChain)
-    end
-end
-
---- @param placeFunc fun(entity: LuaEntityPrototype)
-function TransportChain:placeAllEntities(placeFunc)
-    local transportChain = self
-    local place = function(entity)
-        if transportChain.prevChain ~= nil then
-            placeFunc(entity)
-        end
-    end
-    while transportChain ~= nil do
-        for _, entitySpec in ipairs(transportChain.pathUnit:toEntitySpecs()) do
-            place(entitySpec)
-        end
-        transportChain = transportChain.prevChain
-    end
-end
-
---- Represents the dictionary of minimum travel distance from endingEntity to some belt (represented by a position vector + direction)
---- @class MinDistanceDict
---- @type MinDistanceDict
-local MinDistanceDict = {}
-MinDistanceDict.__directionNum = 8
-MinDistanceDict.__index = MinDistanceDict
-
---- @return MinDistanceDict
-function MinDistanceDict.new()
-    return setmetatable({}, MinDistanceDict)
-end
-
-function MinDistanceDict.__marshalize(vector, direction)
-    return tostring(vector.x) .. '|' .. tostring(vector.y) .. '|' .. tostring(direction)
-end
-
-function MinDistanceDict.__unmarshalize(key)
-    local sep1 = string.find(key, '|')
-    local x = string.sub(key, 1, sep1 - 1)
-    local sep2 = string.find(key, '|', sep1 + 1)
-    local y = string.sub(key, sep1 + 1, sep2 - 1)
-    local direction = string.sub(key, sep2 + 1, -1)
-    return Vector2D.new(tonumber(x), tonumber(y)), tonumber(direction)
-end
-
---- @param vector Vector2D
-function MinDistanceDict:put(vector, direction, val)
-    assertNotNull(self, vector, direction, val)
-    local key = MinDistanceDict.__marshalize(vector, direction)
-    self[key] = val
-end
-
---- @return number
-function MinDistanceDict:get(vector, direction)
-    assertNotNull(self, vector, direction)
-
-    return self[MinDistanceDict.__marshalize(vector, direction)]
-end
-
---- @param f fun(key1:vector, key2: defines.direction, val:number)
-function MinDistanceDict:forEach(f)
-    for key, val in pairs(self) do
-        local vector, direction = MinDistanceDict.__unmarshalize(key)
-        f(vector, direction, val)
-    end
 end
 
 --- An "Abstract" transport line connector
@@ -246,16 +116,16 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         reportToPlayer { "error-message.find-line-group-failed", { startingEntity.name } }
         return
     end
-    local startingUnit = PathUnit:fromLuaEntity(startingEntity)
-    local endingUnit = PathUnit:fromLuaEntity(endingEntity, true)
+    local startingUnit = PathSegment:fromLuaEntity(startingEntity)
+    local endingUnit = PathSegment:fromLuaEntity(endingEntity, true)
 
     local allowUnderground, preferOnGround = self:parseConfig(additionalConfig)
-    local minDistanceDict = MinDistanceDict.new()
-    local priorityQueue = MinHeap.new()
+    local minDistanceDict = MinDistanceDict:new()
+    local priorityQueue = MinHeap:new()
     self.greedyLevel = settings.get_player_settings(player)["greedy-level"].value
 
     -- Here starts the main logic of function
-    local startingEntityTargets = startingUnit:possibleNextPathUnits(false)
+    local startingEntityTargets = startingUnit:possibleNextPathSegments(false)
     local anyUnblocked = false
     for _, target in ipairs(startingEntityTargets) do
         if self.canPlaceEntityFunc(target.position) then
@@ -269,7 +139,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     end
     local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
     -- A* algorithm starts from endingUnit so that we don't have to consider/change last belt's direction
-    priorityQueue:push(0, TransportChain.new(endingUnit))
+    priorityQueue:push(0, PathNode:new(endingUnit))
     local maxTryNum = settings.get_player_settings(player)["max-path-finding-explore-num"].value
     local batchSize = settings.get_player_settings(player)["path-finding-test-per-tick"].value
     local totalTryNum = 0
@@ -278,7 +148,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         local foundPath = false
         local tryNum = 0
         while not priorityQueue:isEmpty() and tryNum < batchSize and not foundPath do
-            --- @type TransportChain
+            --- @type PathNode
             local transportChain = priorityQueue:pop().val
             if tryNum == 0 then
                 player.create_local_flying_text { text = { "info-message.path-find-tag" }, position = transportChain.pathUnit.position, time_to_live = 15 }
@@ -309,14 +179,14 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     asyncTaskManager:pushTask(tryFindPath, taskPriority)
 end
 
---- @param transportChain TransportChain
---- @return TransportChain[]
+--- @param transportChain PathNode
+--- @return PathNode[]
 function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
     assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
 
-    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, self.canPlaceEntityFunc):map(
+    local candidates = transportChain.pathUnit:possiblePrevPathSegments(allowUnderground, self.canPlaceEntityFunc):map(
             function(pathUnit)
-                return TransportChain.new(pathUnit, transportChain, preferOnGround)
+                return PathNode:new(pathUnit, transportChain, preferOnGround)
             end
     )
     local legalCandidates = ArrayList.new()
@@ -328,7 +198,7 @@ function TransportLineConnector:surroundingCandidates(transportChain, minDistanc
     return legalCandidates
 end
 
---- @param newChain TransportChain
+--- @param newChain PathNode
 --- @param minDistanceDict MinDistanceDict
 --- @param startingEntity LuaEntitySpec
 function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingEntity)
@@ -415,7 +285,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
     else
         -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
         local distanceSmallerThanAny = false
-        for _, sourceUnit in ipairs(pathUnit:possiblePrevPathUnits(false)) do
+        for _, sourceUnit in ipairs(pathUnit:possiblePrevPathSegments(false)) do
             local curMinDistance = minDistanceDict:get(sourceUnit.position, sourceUnit.direction)
             if curMinDistance == nil or curMinDistance > newChain.cumulativeDistance then
                 minDistanceDict:put(sourceUnit.position, sourceUnit.direction, newChain.cumulativeDistance)
@@ -430,19 +300,22 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
 end
 
 --- A* algorithm's heuristics cost
---- @param testPathUnit PathUnit
+--- @param testPathSegment PathSegment
 --- @param targetPos Vector2D
 --- @param rewardDirection defines.direction
-function TransportLineConnector:estimateDistance(testPathUnit, targetPos, rewardDirection)
-    local dx = math.abs(testPathUnit.position.x - targetPos.x)
-    local dy = math.abs(testPathUnit.position.y - targetPos.y)
-    -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
-    -- We punish reversed direction, and reward same direction
-    local directionReward = 0
-    if dx + dy <= 5 then
-        directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+function TransportLineConnector:estimateDistance(testPathSegment, targetPos, rewardDirection)
+    local dx = math.abs(testPathSegment.position.x - targetPos.x)
+    local dy = math.abs(testPathSegment.position.y - targetPos.y)
+    -- aligned direction becomes increasingly important as belt is closer to the starting entity
+    -- Therefore we punish reversed direction when path is close enough
+    local directionPunishment = 0
+    -- set as 3 since usually we route 4 belts at once, because direction punishment applies,
+    -- starting belts will changing direction usually at least 3 blocks later to leave space for other belts
+    if (dx + dy) <= 3 then
+        directionPunishment = (math.abs(testPathSegment.direction - rewardDirection)) / (dx + dy + 1)
+        logging.log("direction reward = " .. tostring(directionPunishment), "reward")
     end
-    return (dx + dy + 1 - directionReward) * self.greedyLevel -- slightly encourage greedy-first
+    return (dx + dy + 1 + directionPunishment) * self.greedyLevel -- slightly encourage greedy-first
 end
 
 --- @param minDistanceDict MinDistanceDict
@@ -460,7 +333,7 @@ function TransportLineConnector:debug_visited_position(minDistanceDict)
             local vector = dict.vector
             local text = ""
             for direction, val in pairs(dict.directions) do
-                text = text .. directionMapping[direction] .. tostring(val)
+                text = text .. directionMapping[direction] .. tostring(math.floor(val))
             end
             game.players[1].create_local_flying_text { text = text, position = vector, time_to_live = 100000, speed = 0.000001 }
         end

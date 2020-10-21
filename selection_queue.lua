@@ -6,6 +6,8 @@
 
 --- @type ArrayList
 local ArrayList = require("__MiscLib__/array_list")
+--- @type Logger
+local logging = require("__MiscLib__/logging")
 
 --- @class EntitySelectionInfo
 --- @field entity LuaEntity
@@ -81,10 +83,18 @@ end
 --- @param entity LuaEntity
 --- @return boolean true if success
 function SelectionQueue:tryRemoveDuplicate(entity)
-    for i, selection in ipairs(self.queue) do
-        if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+    local i = 1
+    while i <= #self.queue do
+        local selection = self.queue[i]
+        if selection.entity.valid then
+            if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+                self:removeIndex(i)
+                return true
+            end
+            i = i + 1
+        else
+            logging.log("removed one invalid selection")
             self:removeIndex(i)
-            return true
         end
     end
     return false
