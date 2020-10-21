@@ -15,17 +15,17 @@ local ArrayList = require("__MiscLib__/array_list")
 local MinHeap = require("__MiscLib__/minheap")
 --- @type Vector2D
 local Vector2D = require("__MiscLib__/vector2d")
-local release_mode = require("release")
 --- @type EntityRoutingAttribute
-local EntityRoutingAttribute = require("entity_routing_attribute")
---- @type PathUnit
-local PathUnit = require("path_unit")
+local EntityRoutingAttribute = require("__MiscLib__/path_find/entity_routing_attribute")
+--- @type PathSegment
+local PathSegment = require("__MiscLib__/path_find/path_segment")
 --- @type TransportLineType
-local TransportLineType = require("enum/line_type")
+local TransportLineType = require("__MiscLib__/enum/line_type")
 --- @type PathNode
 local PathNode = require("__MiscLib__/path_find/path_node")
 --- @type MinDistanceDict
 local MinDistanceDict = require("__MiscLib__/path_find/min_distance_dict")
+local release_mode = require("release")
 
 local DirectionHelper = {}
 
@@ -116,8 +116,8 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
         reportToPlayer { "error-message.find-line-group-failed", { startingEntity.name } }
         return
     end
-    local startingUnit = PathUnit:fromLuaEntity(startingEntity)
-    local endingUnit = PathUnit:fromLuaEntity(endingEntity, true)
+    local startingUnit = PathSegment:fromLuaEntity(startingEntity)
+    local endingUnit = PathSegment:fromLuaEntity(endingEntity, true)
 
     local allowUnderground, preferOnGround = self:parseConfig(additionalConfig)
     local minDistanceDict = MinDistanceDict:new()
@@ -125,7 +125,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     self.greedyLevel = settings.get_player_settings(player)["greedy-level"].value
 
     -- Here starts the main logic of function
-    local startingEntityTargets = startingUnit:possibleNextPathUnits(false)
+    local startingEntityTargets = startingUnit:possibleNextPathSegments(false)
     local anyUnblocked = false
     for _, target in ipairs(startingEntityTargets) do
         if self.canPlaceEntityFunc(target.position) then
@@ -184,7 +184,7 @@ end
 function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
     assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
 
-    local candidates = transportChain.pathUnit:possiblePrevPathUnits(allowUnderground, self.canPlaceEntityFunc):map(
+    local candidates = transportChain.pathUnit:possiblePrevPathSegments(allowUnderground, self.canPlaceEntityFunc):map(
             function(pathUnit)
                 return PathNode:new(pathUnit, transportChain, preferOnGround)
             end
@@ -285,7 +285,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
     else
         -- we only consider those path whose distance could be smaller at the position, like dijkstra algorithm
         local distanceSmallerThanAny = false
-        for _, sourceUnit in ipairs(pathUnit:possiblePrevPathUnits(false)) do
+        for _, sourceUnit in ipairs(pathUnit:possiblePrevPathSegments(false)) do
             local curMinDistance = minDistanceDict:get(sourceUnit.position, sourceUnit.direction)
             if curMinDistance == nil or curMinDistance > newChain.cumulativeDistance then
                 minDistanceDict:put(sourceUnit.position, sourceUnit.direction, newChain.cumulativeDistance)
@@ -300,17 +300,17 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
 end
 
 --- A* algorithm's heuristics cost
---- @param testPathUnit PathUnit
+--- @param testPathSegment PathSegment
 --- @param targetPos Vector2D
 --- @param rewardDirection defines.direction
-function TransportLineConnector:estimateDistance(testPathUnit, targetPos, rewardDirection)
-    local dx = math.abs(testPathUnit.position.x - targetPos.x)
-    local dy = math.abs(testPathUnit.position.y - targetPos.y)
+function TransportLineConnector:estimateDistance(testPathSegment, targetPos, rewardDirection)
+    local dx = math.abs(testPathSegment.position.x - targetPos.x)
+    local dy = math.abs(testPathSegment.position.y - targetPos.y)
     -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
     -- We punish reversed direction, and reward same direction
     local directionReward = 0
     if dx + dy <= 5 then
-        directionReward = -1 * ((testPathUnit.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
+        directionReward = -1 * ((testPathSegment.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
     end
     return (dx + dy + 1 - directionReward) * self.greedyLevel -- slightly encourage greedy-first
 end

@@ -11,16 +11,17 @@
 local Copy = require("__MiscLib__/copy")
 --- @type Logger
 local logging = require("__MiscLib__/logging")
+--- @type EntityRoutingAttribute
+local EntityRoutingAttribute = require("__MiscLib__/path_find/entity_routing_attribute")
+--- @type AsyncTaskManager
+local AsyncTaskManager = require("__MiscLib__/async_task")
+
+--- @type SelectionQueue
+local SelectionQueue = require("selection_queue")
 --- @type TransportLineConnector
 local TransportLineConnector = require("transport_line_connector")
 --- @type boolean
 local releaseMode = require("release")
---- @type EntityRoutingAttribute
-local EntityRoutingAttribute = require("entity_routing_attribute")
---- @type SelectionQueue
-local SelectionQueue = require("selection_queue")
---- @type AsyncTaskManager
-local AsyncTaskManager = require("__MiscLib__/async_task")
 
 --- @type table<string, boolean> simple table for easy toggling debugging groups
 local loggingCategories = {
