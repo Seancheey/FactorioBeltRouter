@@ -306,14 +306,16 @@ end
 function TransportLineConnector:estimateDistance(testPathSegment, targetPos, rewardDirection)
     local dx = math.abs(testPathSegment.position.x - targetPos.x)
     local dy = math.abs(testPathSegment.position.y - targetPos.y)
-    -- direction becomes increasingly important as belt is closer to starting entity, but reward is no more than 1
-    -- We punish reversed direction, and reward same direction
-    local directionReward = 0
+    -- aligned direction becomes increasingly important as belt is closer to the starting entity
+    -- Therefore we punish reversed direction when path is close enough
+    local directionPunishment = 0
+    -- set as 3 since usually we route 4 belts at once, because direction punishment applies,
+    -- starting belts will changing direction usually at least 3 blocks later to leave space for other belts
     if (dx + dy) <= 3 then
-        directionReward = -1 * ((testPathSegment.direction - rewardDirection) % 8 / 2 - 1) / (dx + dy + 1)
-        logging.log("direction reward = " .. tostring(directionReward), "reward")
+        directionPunishment = (math.abs(testPathSegment.direction - rewardDirection)) / (dx + dy + 1)
+        logging.log("direction reward = " .. tostring(directionPunishment), "reward")
     end
-    return (dx + dy + 1 - directionReward) * self.greedyLevel -- slightly encourage greedy-first
+    return (dx + dy + 1 + directionPunishment) * self.greedyLevel -- slightly encourage greedy-first
 end
 
 --- @param minDistanceDict MinDistanceDict
@@ -331,7 +333,7 @@ function TransportLineConnector:debug_visited_position(minDistanceDict)
             local vector = dict.vector
             local text = ""
             for direction, val in pairs(dict.directions) do
-                text = text .. directionMapping[direction] .. tostring(val)
+                text = text .. directionMapping[direction] .. tostring(math.floor(val))
             end
             game.players[1].create_local_flying_text { text = text, position = vector, time_to_live = 100000, speed = 0.000001 }
         end
