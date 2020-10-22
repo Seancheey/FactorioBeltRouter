@@ -220,9 +220,9 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
             local entityInMiddle = self.getEntityFunc(testPos)
             if entityInMiddle
                     and (
-                    entityInMiddle.name == pathUnit.name or
-                            (entityInMiddle.type == "entity-ghost"
-                                    and entityInMiddle.ghost_name == pathUnit.name
+                    (entityInMiddle.name == pathUnit.name) or
+                            ((entityInMiddle.type == "entity-ghost")
+                                    and (entityInMiddle.ghost_name == pathUnit.name)
                             ))
                     and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
             then

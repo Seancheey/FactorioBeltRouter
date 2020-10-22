@@ -115,7 +115,8 @@ local function setEndingTransportLine(event, config)
     local function getEntity(position)
         for _, entity in pairs(surface.find_entities({ { position.x, position.y }, { position.x, position.y } })) do
             -- don't want player/other vehicles to be included
-            if EntityRoutingAttribute.from(entity.name) then
+            local real_name = (entity.name == "entity-ghost") and entity.ghost_name or entity.name
+            if EntityRoutingAttribute.from(real_name) then
                 return entity
             end
         end
