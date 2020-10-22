@@ -138,7 +138,6 @@ local function tryRemoveSelectedStartingPoint(eventWithEntity)
     --- @type LuaEntity
     local entity = eventWithEntity.entity
     if playerSelectedStartingPositions[player_index] and EntityRoutingAttribute.from(entity.name) then
-        logging.log("try remove entity: " .. serpent.line(entity.position))
         playerSelectedStartingPositions[player_index]:tryRemoveDuplicate(entity)
     end
 end
