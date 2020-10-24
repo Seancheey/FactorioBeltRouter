@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.3
+Date: 2020.10.23
+  Optimisations:
+    - Prefer-on-ground routing mode no long prefer shortest underground belts
+    - Increase turning punishment so that path finder now lean more towards optimal turning number path
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.2
 Date: 2020.10.21
   Bugfixes:
