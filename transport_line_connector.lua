@@ -53,6 +53,9 @@ function DirectionHelper.neighboringEntities(position, getEntityFunc)
             entities:add(entity)
         end
     end
+    logging.log("neighboring entities " .. serpent.line(ArrayList.map(entities, function(entity)
+        return serpent.line(entity.position)
+    end)))
     return entities
 end
 
@@ -158,7 +161,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 logging.log("Path find algorithm explored " .. tostring(totalTryNum + tryNum) .. " blocks to find solution")
                 foundPath = true
             end
-            for _, newChain in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit, preferOnGround)) do
+            for _, newChain in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit, endingUnit, preferOnGround)) do
                 priorityQueue:push(self:estimateDistance(newChain.pathUnit, startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
@@ -180,9 +183,11 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
 end
 
 --- @param transportChain PathNode
+--- @param startingSegment PathSegment
+--- @param endingSegment PathSegment
 --- @return PathNode[]
-function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
-    assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
+function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingSegment, endingSegment, preferOnGround)
+    assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingSegment, preferOnGround)
 
     local candidates = transportChain.pathUnit:possiblePrevPathSegments(allowUnderground, self.canPlaceEntityFunc):map(
             function(pathUnit)
@@ -191,7 +196,7 @@ function TransportLineConnector:surroundingCandidates(transportChain, minDistanc
     )
     local legalCandidates = ArrayList.new()
     for _, newChain in ipairs(candidates) do
-        if self:testCanPlace(newChain, minDistanceDict, startingEntity) then
+        if self:testCanPlace(newChain, minDistanceDict, startingSegment, endingSegment) then
             legalCandidates:add(newChain)
         end
     end
@@ -200,9 +205,10 @@ end
 
 --- @param newChain PathNode
 --- @param minDistanceDict MinDistanceDict
---- @param startingEntity LuaEntitySpec
-function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingEntity)
-    assertNotNull(self, newChain, minDistanceDict, startingEntity)
+--- @param startingSegment PathSegment
+--- @param endingSegment PathSegment
+function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingSegment, endingSegment)
+    assertNotNull(self, newChain, minDistanceDict, startingSegment)
     local pathUnit = newChain.pathUnit
     local entityList = pathUnit:toEntitySpecs()
 
@@ -239,7 +245,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                    if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                    if (neighbor.position - startingSegment.position):lInfNorm() > 0.5 then
                         logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
                     else
@@ -253,8 +259,8 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
                     if neighborType:isOnGroundPipe() or DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                        if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
-                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
+                        if (neighbor.position - startingSegment.position):lInfNorm() > 0.5 and (neighbor.position - endingSegment.position):lInfNorm() > 0.5 then
+                            logging.log("found interfere and avoid building at " .. serpent.line(entity.position) .. "since distance is " .. tostring((neighbor.position - startingSegment.position):lInfNorm()), "placing")
                             return false
                         else
                             closeToFinal = true
@@ -293,7 +299,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
             end
         end
         if not distanceSmallerThanAny then
-            logging.log("distance is no smaller than any at " .. serpent.line(pathUnit.position), "placing")
+            --logging.log("distance is no smaller than any at " .. serpent.line(pathUnit.position), "placing")
         end
         return distanceSmallerThanAny
     end
