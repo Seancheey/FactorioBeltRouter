@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.4
+Date: 2020.10.28
+  Features:
+    - Add settings for underground belt punishment and turning punishment for better algorithm tuning
+  Optimisations:
+    - Add localized mod settings description. User can now see more detailed setting description by hovering mouse over the settings.
+  Bugfixes:
+    - Fixed a bug that causes pipe to route incorrectly in some weird situations.
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.3
 Date: 2020.10.23
   Optimisations:

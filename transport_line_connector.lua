@@ -86,6 +86,8 @@ end
 --- @class LineConnectConfig
 --- @field allowUnderground boolean default true
 --- @field preferOnGround boolean default true
+--- @field preferGroundModeUndergroundPunishment number
+--- @field turningPunishment number
 
 --- @param startingEntity LuaEntity
 --- @param endingEntity LuaEntity
@@ -119,7 +121,6 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     local startingUnit = PathSegment:fromLuaEntity(startingEntity)
     local endingUnit = PathSegment:fromLuaEntity(endingEntity, true)
 
-    local allowUnderground, preferOnGround = self:parseConfig(additionalConfig)
     local minDistanceDict = MinDistanceDict:new()
     local priorityQueue = MinHeap:new()
     self.greedyLevel = settings.get_player_settings(player)["greedy-level"].value
@@ -139,7 +140,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
     end
     local startingEntityTargetPos = EntityRoutingAttribute.from(startingUnit.name).lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(startingUnit) or startingUnit.position
     -- A* algorithm starts from endingUnit so that we don't have to consider/change last belt's direction
-    priorityQueue:push(0, PathNode:new(endingUnit))
+    priorityQueue:push(0, PathNode:new(endingUnit, nil, additionalConfig))
     local maxTryNum = settings.get_player_settings(player)["max-path-finding-explore-num"].value
     local batchSize = settings.get_player_settings(player)["path-finding-test-per-tick"].value
     local totalTryNum = 0
@@ -158,7 +159,7 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
                 logging.log("Path find algorithm explored " .. tostring(totalTryNum + tryNum) .. " blocks to find solution")
                 foundPath = true
             end
-            for _, newChain in pairs(self:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingUnit, preferOnGround)) do
+            for _, newChain in pairs(self:surroundingCandidates(transportChain, minDistanceDict, startingUnit, endingUnit, additionalConfig)) do
                 priorityQueue:push(self:estimateDistance(newChain.pathUnit, startingEntityTargetPos, startingUnit.direction) + newChain.cumulativeDistance, newChain)
             end
             tryNum = tryNum + 1
@@ -180,18 +181,21 @@ function TransportLineConnector:buildTransportLine(startingEntity, endingEntity,
 end
 
 --- @param transportChain PathNode
+--- @param startingSegment PathSegment
+--- @param endingSegment PathSegment
+--- @param playerConfig LineConnectConfig
 --- @return PathNode[]
-function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
-    assertNotNull(self, transportChain, minDistanceDict, allowUnderground, startingEntity, preferOnGround)
+function TransportLineConnector:surroundingCandidates(transportChain, minDistanceDict, startingSegment, endingSegment, playerConfig)
+    assertNotNull(self, transportChain, minDistanceDict, startingSegment, playerConfig)
 
-    local candidates = transportChain.pathUnit:possiblePrevPathSegments(allowUnderground, self.canPlaceEntityFunc):map(
+    local candidates = transportChain.pathUnit:possiblePrevPathSegments(playerConfig.allowUnderground, self.canPlaceEntityFunc):map(
             function(pathUnit)
-                return PathNode:new(pathUnit, transportChain, preferOnGround)
+                return PathNode:new(pathUnit, transportChain, playerConfig)
             end
     )
     local legalCandidates = ArrayList.new()
     for _, newChain in ipairs(candidates) do
-        if self:testCanPlace(newChain, minDistanceDict, startingEntity) then
+        if self:testCanPlace(newChain, minDistanceDict, startingSegment, endingSegment) then
             legalCandidates:add(newChain)
         end
     end
@@ -200,9 +204,10 @@ end
 
 --- @param newChain PathNode
 --- @param minDistanceDict MinDistanceDict
---- @param startingEntity LuaEntitySpec
-function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingEntity)
-    assertNotNull(self, newChain, minDistanceDict, startingEntity)
+--- @param startingSegment PathSegment
+--- @param endingSegment PathSegment
+function TransportLineConnector:testCanPlace(newChain, minDistanceDict, startingSegment, endingSegment)
+    assertNotNull(self, newChain, minDistanceDict, startingSegment)
     local pathUnit = newChain.pathUnit
     local entityList = pathUnit:toEntitySpecs()
 
@@ -239,7 +244,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                    if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                    if (neighbor.position - startingSegment.position):lInfNorm() > 0.5 then
                         logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
                     else
@@ -253,7 +258,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
                 if neighborType and neighborType.lineType == TransportLineType.fluidLine then
                     if neighborType:isOnGroundPipe() or DirectionHelper.targetPositionOf(neighbor) == entity.position then
-                        if (neighbor.position - startingEntity.position):lInfNorm() > 0.5 then
+                        if (neighbor.position - startingSegment.position):lInfNorm() > 0.5 and (neighbor.position - endingSegment.position):lInfNorm() > 0.5 then
                             logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                             return false
                         else
@@ -293,7 +298,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
             end
         end
         if not distanceSmallerThanAny then
-            logging.log("distance is no smaller than any at " .. serpent.line(pathUnit.position), "placing")
+            --logging.log("distance is no smaller than any at " .. serpent.line(pathUnit.position), "placing")
         end
         return distanceSmallerThanAny
     end
@@ -338,22 +343,6 @@ function TransportLineConnector:debug_visited_position(minDistanceDict)
             game.players[1].create_local_flying_text { text = text, position = vector, time_to_live = 100000, speed = 0.000001 }
         end
     end
-end
-
---- @param additionalConfig LineConnectConfig nullable
---- @return boolean, boolean allowUnderground, preferOnGround
-function TransportLineConnector:parseConfig(additionalConfig)
-    local allowUnderground = true
-    local preferOnGround = false
-    if additionalConfig then
-        if additionalConfig.allowUnderground ~= nil then
-            allowUnderground = additionalConfig.allowUnderground
-        end
-        if additionalConfig.preferOnGround ~= nil then
-            preferOnGround = additionalConfig.preferOnGround
-        end
-    end
-    return allowUnderground, preferOnGround
 end
 
 return TransportLineConnector

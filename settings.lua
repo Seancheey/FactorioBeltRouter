@@ -29,4 +29,16 @@ data:extend {
         minimum_value = 1,
         maximum_value = 2
     },
+    {
+        type = "double-setting",
+        setting_type = "runtime-per-user",
+        name = "prefer-ground-mode-underground-punishment",
+        default_value = 1,
+    },
+    {
+        type = "double-setting",
+        setting_type = "runtime-per-user",
+        name = "turning-punishment",
+        default_value = 2,
+    },
 }

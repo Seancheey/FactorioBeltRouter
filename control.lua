@@ -67,10 +67,12 @@ local function setStartingTransportLine(event)
         else
             playerSelectedStartingPositions[event.player_index]:push(selectedEntity)
             player.print { "info-message.push-entity" }
+            logging.log("Add entity at position " .. serpent.line(selectedEntity.position))
         end
     end
 end
 
+--- @param config LineConnectConfig
 local function setEndingTransportLine(event, config)
     local player = game.players[event.player_index]
     local selectedEntity = player.selected
@@ -91,6 +93,12 @@ local function setEndingTransportLine(event, config)
     if not startingEntity then
         player.print { "error-message.no-starting-point-selected" }
         return
+    end
+    if config.turningPunishment == nil then
+        config.turningPunishment = settings.get_player_settings(player)["turning-punishment"].value
+    end
+    if config.preferGroundModeUndergroundPunishment == nil then
+        config.preferGroundModeUndergroundPunishment = settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value
     end
     logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
@@ -144,7 +152,7 @@ end
 
 script.on_event("select-line-starting-point", setStartingTransportLine)
 script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = false })
-script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false })
+script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false, preferOnGround = true })
 script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })
 script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
 script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
