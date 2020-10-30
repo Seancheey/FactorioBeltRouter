@@ -21,6 +21,8 @@ local logging = require("__MiscLib__/logging")
 local SelectionQueue = {}
 SelectionQueue.__index = SelectionQueue
 
+local renderedBoxLiveTime = 60 * 60 * 5 -- 5 min
+
 --- @return SelectionQueue
 function SelectionQueue:new(playerIndex)
     --- @type SelectionQueue
@@ -41,7 +43,7 @@ function SelectionQueue:push(entity)
         filled = false,
         left_top = entity.selection_box.left_top,
         right_bottom = entity.selection_box.right_bottom,
-        time_to_live = 60 * 60 -- 60tick/sec * 60sec/min = 1 min live time
+        time_to_live = renderedBoxLiveTime -- 60tick/sec * 60sec/min = 1 min live time
     }
 
     local textId = rendering.draw_text {
@@ -50,7 +52,7 @@ function SelectionQueue:push(entity)
         text = #self + 1,
         color = { 1, 1, 1, 0.9 },
         target = entity,
-        time_to_live = 60 * 60
+        time_to_live = renderedBoxLiveTime
     }
     self.queue:add { entity = entity, rectangleId = rectId, textId = textId }
 end
@@ -102,7 +104,18 @@ end
 
 function SelectionQueue:__updateLabelNumbers()
     for i, otherSelection in ipairs(self.queue) do
-        rendering.set_text(otherSelection.textId, i)
+        if rendering.is_valid(otherSelection.textId) then
+            rendering.set_text(otherSelection.textId, i)
+        else
+            rendering.draw_text {
+                surface = game.players[self.playerIndex].surface,
+                players = { game.players[self.playerIndex] },
+                text = i,
+                color = { 1, 1, 1, 0.9 },
+                target = otherSelection.entity,
+                time_to_live = renderedBoxLiveTime
+            }
+        end
     end
 end
 

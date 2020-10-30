@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.5
+Date: 2020.10.29
+  Bugfixes:
+    - Fix bug that may let pipe path overlap in some situation
+    - Fix bug that may crash game when a starting point isn't connected for a long time
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.4
 Date: 2020.10.28
   Features:
