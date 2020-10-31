@@ -114,6 +114,8 @@ local function setEndingTransportLine(event, config)
             entity.name = "entity-ghost"
         end
         entity.player = player
+        -- This tells game to raise build event so that the action could potentially be caught by other mods
+        entity.raise_built = true
         if not releaseMode then
             player.create_local_flying_text { text = tostring(num), position = entity.position, time_to_live = 100000, speed = 0.000001 }
             num = num + 1
