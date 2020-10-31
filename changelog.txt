@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.6
+Date: 2020.10.30
+  Optimisations:
+    - Allows the ghost building to be seen by other mods by raising build event while placing ghost belts
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.5
 Date: 2020.10.29
   Bugfixes:
