@@ -243,7 +243,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
             -- Check neighbor belts, make sure they don't face our path
             for _, neighbor in ipairs(DirectionHelper.neighboringEntities(entity.position, self.getEntityFunc)) do
                 local neighborType = EntityRoutingAttribute.from(neighbor.name)
-                if neighborType and neighborType.lineType == TransportLineType.itemLine and DirectionHelper.targetPositionOf(neighbor) == entity.position then
+                if neighborType and DirectionHelper.targetPositionOf(neighbor) == entity.position and (neighborType:isOnGroundBelt() or (neighborType:isUndergroundBelt() and neighbor.type == "output")) then
                     if (neighbor.position - startingSegment.position):lInfNorm() > 0.5 then
                         logging.log("found interfere and avoid building at " .. serpent.line(entity.position), "placing")
                         return false
