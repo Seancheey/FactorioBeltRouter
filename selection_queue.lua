@@ -60,6 +60,7 @@ end
 --- @return LuaEntity
 function SelectionQueue:pop()
     if #self.queue > 0 then
+        self:__clearInvalidSelections()
         --- @type EntitySelectionInfo
         local selection = self.queue:popLeft()
         rendering.destroy(selection.rectangleId)
@@ -77,6 +78,7 @@ function SelectionQueue:removeIndex(index)
     if removedSelection then
         rendering.destroy(removedSelection.rectangleId)
         rendering.destroy(removedSelection.textId)
+        self:__clearInvalidSelections()
         self:__updateLabelNumbers()
         return removedSelection.entity
     end
@@ -85,21 +87,30 @@ end
 --- @param entity LuaEntity
 --- @return boolean true if success
 function SelectionQueue:tryRemoveDuplicate(entity)
+    self:__clearInvalidSelections()
+    local i = 1
+    while i <= #self.queue do
+        local selection = self.queue[i]
+        if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+            self:removeIndex(i)
+            return true
+        end
+        i = i + 1
+    end
+    return false
+end
+
+function SelectionQueue:__clearInvalidSelections()
     local i = 1
     while i <= #self.queue do
         local selection = self.queue[i]
         if selection.entity.valid then
-            if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
-                self:removeIndex(i)
-                return true
-            end
             i = i + 1
         else
             logging.log("removed one invalid selection")
             self:removeIndex(i)
         end
     end
-    return false
 end
 
 function SelectionQueue:__updateLabelNumbers()
