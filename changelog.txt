@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.7
+Date: 2020.11.1
+  Bugfixes:
+    - Fix a bug that path find will try to avoid "input" type underground belts and potentially cause failure to find path
+    - Fix a bug that may crash game when selected entity is replace/deleted
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.6
 Date: 2020.10.30
   Optimisations:
