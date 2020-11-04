@@ -223,13 +223,7 @@ function TransportLineConnector:testCanPlace(newChain, minDistanceDict, starting
         for testDiff = 1, pathUnit.distance - 2, 1 do
             local testPos = pathUnit.position + Vector2D.fromDirection(pathUnit.direction):scale(testDiff)
             local entityInMiddle = self.getEntityFunc(testPos)
-            if entityInMiddle
-                    and (
-                    (entityInMiddle.name == pathUnit.name) or
-                            ((entityInMiddle.type == "entity-ghost")
-                                    and (entityInMiddle.ghost_name == pathUnit.name)
-                            ))
-                    and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
+            if entityInMiddle and (entityInMiddle.name == pathUnit.name) and (((pathUnit.direction or defines.direction.north) - entityInMiddle.direction) % 4) == 0
             then
                 logging.log("can't cross other entity facing" .. tostring(entityInMiddle.direction), "placing")
                 return false
