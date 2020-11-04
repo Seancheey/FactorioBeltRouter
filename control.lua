@@ -127,6 +127,15 @@ local function setEndingTransportLine(event, config)
             -- don't want player/other vehicles to be included
             local real_name = (entity.name == "entity-ghost") and entity.ghost_name or entity.name
             if EntityRoutingAttribute.from(real_name) then
+                -- converts ghost entity to normal entity for easier handling
+                if entity.name == "entity-ghost" then
+                    entity = {
+                        name = entity.ghost_name,
+                        direction = entity.direction,
+                        position = entity.position,
+                        type = entity.type,
+                    }
+                end
                 return entity
             end
         end
