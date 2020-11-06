@@ -33,7 +33,7 @@ data:extend {
         type = "double-setting",
         setting_type = "runtime-per-user",
         name = "prefer-ground-mode-underground-punishment",
-        default_value = 1,
+        default_value = 5,
     },
     {
         type = "double-setting",

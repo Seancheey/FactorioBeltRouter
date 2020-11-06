@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.2.1
+Date: 2020.11.6
+  Optimisations:
+    - Path finder now favor more on-ground belts in mixed mode: Change default prefer-on-ground-mode underground belt distance punishment from 1 to 5.
+  Bugfixes:
+    - Fix a bug that prevents settings from being updated once belt is routed.
+
+---------------------------------------------------------------------------------------------------
 Version: 1.2.0
 Date: 2020.11.6
   Features:
