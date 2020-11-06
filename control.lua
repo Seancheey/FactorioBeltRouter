@@ -103,9 +103,16 @@ local function setEndingTransportLine(event, config)
     logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
     local function canPlace(position)
-        return surface.can_place_entity { name = "transport-belt", position = position, build_check_type = defines.build_check_type.ghost_place }
+        local forced = settings.get_player_settings(player)["force-build"].value
+        return surface.can_place_entity {
+            name = "transport-belt",
+            position = position,
+            build_check_type = defines.build_check_type.ghost_place,
+            forced = forced,
+        }
     end
     local num = 1
+    --- @param entity LuaEntity
     local function place(entity)
         entity = Copy.deep_copy(entity)
         entity.force = player.force
@@ -116,11 +123,18 @@ local function setEndingTransportLine(event, config)
         entity.player = player
         -- This tells game to raise build event so that the action could potentially be caught by other mods
         entity.raise_built = true
+        -- checks for colliding trees/cliffs
+        local collidingEntities = surface.find_entities({ { entity.position.x - 0.5, entity.position.y - 0.5 }, { entity.position.x + 0.5, entity.position.y + 0.5 } })
+        if collidingEntities then
+            for _, collidingEntity in ipairs(collidingEntities) do
+                collidingEntity.order_deconstruction(player.force, player)
+            end
+        end
+        surface.create_entity(entity)
         if not releaseMode then
             player.create_local_flying_text { text = tostring(num), position = entity.position, time_to_live = 100000, speed = 0.000001 }
             num = num + 1
         end
-        surface.create_entity(entity)
     end
     local function getEntity(position)
         for _, entity in pairs(surface.find_entities({ { position.x, position.y }, { position.x, position.y } })) do
@@ -167,8 +181,17 @@ script.on_event("build-transport-line-no-underground", buildTransportLineWithCon
 script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })
 script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
 script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
+
+-- notice for keymap changing from shift to control click
+script.on_configuration_changed(function(data)
+    local modChange = data.mod_changes["BeltRouter"]
+    if modChange then
+        game.print({ "info-message.update-keymap-notice" }, { 1, 0, 0 })
+    end
+end)
 setupLogging()
 
+-- Used for debugging purpose only with gvv mod
 if script.active_mods["gvv"] then
     require("__gvv__.gvv")()
 end

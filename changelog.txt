@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.2.0
+Date: 2020.11.6
+  Features:
+    - Update default key bindings from shift to control so that it won't collide with the belt configuration copying/pasting
+    - Added a Alternative key binding for selecting starting point as shift + control + right click.
+    - Path finder now can route path over trees and cliffs.
+    - Added a setting for enable/disable routing over trees/cliffs.
+
+---------------------------------------------------------------------------------------------------
 Version: 1.1.8
 Date: 2020.11.4
   Bugfixes:
