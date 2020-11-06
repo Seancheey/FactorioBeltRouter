@@ -22,6 +22,7 @@ data:extend {
     {
         type = "custom-input",
         name = "select-line-starting-point",
-        key_sequence = "CONTROL + mouse-button-2"
+        key_sequence = "CONTROL + mouse-button-2",
+        alternative_key_sequence = "CONTROL + SHIFT + mouse-button-2"
     }
 }
