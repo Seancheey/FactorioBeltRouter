@@ -41,4 +41,10 @@ data:extend {
         name = "turning-punishment",
         default_value = 2,
     },
+    {
+        type = "bool-setting",
+        setting_type = "runtime-per-user",
+        name = "force-build",
+        default_value = true
+    }
 }
