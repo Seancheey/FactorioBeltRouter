@@ -94,12 +94,8 @@ local function setEndingTransportLine(event, config)
         player.print { "error-message.no-starting-point-selected" }
         return
     end
-    if config.turningPunishment == nil then
-        config.turningPunishment = settings.get_player_settings(player)["turning-punishment"].value
-    end
-    if config.preferGroundModeUndergroundPunishment == nil then
-        config.preferGroundModeUndergroundPunishment = settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value
-    end
+    config.turningPunishment = settings.get_player_settings(player)["turning-punishment"].value
+    config.preferGroundModeUndergroundPunishment = settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value
     logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
     local function canPlace(position)
