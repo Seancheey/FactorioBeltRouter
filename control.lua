@@ -167,8 +167,17 @@ script.on_event("build-transport-line-no-underground", buildTransportLineWithCon
 script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })
 script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
 script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
+
+-- notice for keymap changing from shift to control click
+script.on_configuration_changed(function(data)
+    local modChange = data.mod_changes["BeltRouter"]
+    if modChange then
+        game.print({ "info-message.update-keymap-notice" }, { 1, 0, 0 })
+    end
+end)
 setupLogging()
 
+-- Used for debugging purpose only with gvv mod
 if script.active_mods["gvv"] then
     require("__gvv__.gvv")()
 end
