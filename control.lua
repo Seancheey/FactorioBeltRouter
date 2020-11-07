@@ -181,19 +181,6 @@ local function tryRemoveSelectedStartingPoint(eventWithEntity)
     end
 end
 
-local function toggleWaypointMode(event)
-    if event.prototype_name and event.prototype_name ~= "toggle-waypoint-mode" then
-        return
-    end
-    local player = game.players[event.player_index]
-    local oldToggleValue = player.is_shortcut_toggled("toggle-waypoint-mode")
-    player.set_shortcut_toggled("toggle-waypoint-mode", not oldToggleValue)
-    if oldToggleValue == true and playerSelectedStartingPositions[event.player_index] then
-        playerSelectedStartingPositions[event.player_index]:removeAll()
-        player.print { "info-message.clear-all-starting-points" }
-    end
-end
-
 --- @param player LuaPlayer
 --- @return LineConnectConfig
 local function getWaypointRoutingConfig(player)
@@ -215,6 +202,22 @@ local function getWaypointRoutingConfig(player)
             logging.log("routing config doesn't exist: " .. tostring(configSetting), logging.E)
         end
         return routingConfig
+    end
+end
+
+local function toggleWaypointMode(event)
+    if event.prototype_name and event.prototype_name ~= "toggle-waypoint-mode" then
+        return
+    end
+    local player = game.players[event.player_index]
+    local oldToggleValue = player.is_shortcut_toggled("toggle-waypoint-mode")
+    player.set_shortcut_toggled("toggle-waypoint-mode", not oldToggleValue)
+    if oldToggleValue == true and playerSelectedStartingPositions[event.player_index] then
+        playerSelectedStartingPositions[event.player_index]:removeAll()
+        player.print { "info-message.clear-all-starting-points" }
+    elseif oldToggleValue == false then
+        local configSetting = settings.get_player_settings(player)["waypoint-mode-routing-mode"].value
+        player.print { "info-message.notify-waypoint-routing-mode", { "string-mod-setting." .. configSetting } }
     end
 end
 
