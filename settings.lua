@@ -46,5 +46,12 @@ data:extend {
         setting_type = "runtime-per-user",
         name = "force-build",
         default_value = true
+    },
+    {
+        type = "string-setting",
+        setting_type = "runtime-per-user",
+        default_value = "last-mode",
+        name = "waypoint-mode-routing-mode",
+        allowed_values = { "last-mode", "prefer-on-ground-mode", "prefer-underground-mode", "no-underground-mode" },
     }
 }

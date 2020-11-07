@@ -46,10 +46,11 @@ end
 
 --- @type table<player_index, SelectionQueue>
 local playerSelectedStartingPositions = {}
+--- Used for waypoint mode of recording player's last routing config
+--- @type table<player_index, LineConnectConfig>
+local playerLastRoutingConfig = {}
 
-local function setStartingTransportLine(event)
-    local player = game.players[event.player_index]
-    local selectedEntity = player.selected
+local function setStartingTransportLine(player, selectedEntity)
     if not selectedEntity then
         return
     end
@@ -59,23 +60,28 @@ local function setStartingTransportLine(event)
     end
     local transportLineType = EntityRoutingAttribute.from(entityName)
     if transportLineType then
-        if playerSelectedStartingPositions[event.player_index] == nil then
-            playerSelectedStartingPositions[event.player_index] = SelectionQueue:new(event.player_index)
+        if playerSelectedStartingPositions[player.index] == nil then
+            playerSelectedStartingPositions[player.index] = SelectionQueue:new(player.index)
         end
-        if playerSelectedStartingPositions[event.player_index]:tryRemoveDuplicate(selectedEntity) then
+        if playerSelectedStartingPositions[player.index]:tryRemoveDuplicate(selectedEntity) then
             player.print { "info-message.remove-starting-point" }
         else
-            playerSelectedStartingPositions[event.player_index]:push(selectedEntity)
+            playerSelectedStartingPositions[player.index]:push(selectedEntity)
             player.print { "info-message.push-entity" }
             logging.log("Add entity at position " .. serpent.line(selectedEntity.position))
         end
     end
 end
 
---- @param config LineConnectConfig
-local function setEndingTransportLine(event, config)
+local function triggerSetStartingTransportLine(event)
     local player = game.players[event.player_index]
     local selectedEntity = player.selected
+    setStartingTransportLine(player, selectedEntity)
+end
+
+--- @param config LineConnectConfig
+local function setEndingTransportLine(player, selectedEntity, config)
+    local player_index = player.index
     if not selectedEntity then
         return
     end
@@ -87,8 +93,8 @@ local function setEndingTransportLine(event, config)
         return
     end
     local startingEntity
-    if playerSelectedStartingPositions[event.player_index] then
-        startingEntity = playerSelectedStartingPositions[event.player_index]:pop()
+    if playerSelectedStartingPositions[player_index] then
+        startingEntity = playerSelectedStartingPositions[player_index]:pop()
     end
     if not startingEntity then
         player.print { "error-message.no-starting-point-selected" }
@@ -152,13 +158,17 @@ local function setEndingTransportLine(event, config)
     end
     local transportLineConstructor = TransportLineConnector.new(canPlace, place, getEntity, taskManager)
     transportLineConstructor:buildTransportLine(startingEntity, selectedEntity, taskManager, config, player)
+
+    -- set player's last routing config
+    playerLastRoutingConfig[player_index] = config
 end
 
 --- helper function
 --- @param config LineConnectConfig
-local function buildTransportLineWithConfig(config)
+local function triggerSetEndingTransportLineWithConfigHelper(config)
     return function(event)
-        setEndingTransportLine(event, config)
+        local player = game.players[event.player_index]
+        setEndingTransportLine(player, player.selected, config)
     end
 end
 
@@ -176,17 +186,64 @@ local function toggleWaypointMode(event)
         return
     end
     local player = game.players[event.player_index]
-    player.set_shortcut_toggled("toggle-waypoint-mode", not player.is_shortcut_toggled("toggle-waypoint-mode"))
+    local oldToggleValue = player.is_shortcut_toggled("toggle-waypoint-mode")
+    player.set_shortcut_toggled("toggle-waypoint-mode", not oldToggleValue)
+    if oldToggleValue == true and playerSelectedStartingPositions[event.player_index] then
+        playerSelectedStartingPositions[event.player_index]:removeAll()
+        player.print { "info-message.clear-all-starting-points" }
+    end
 end
 
-script.on_event("select-line-starting-point", setStartingTransportLine)
-script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = false })
-script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false, preferOnGround = true })
-script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })
+--- @param player LuaPlayer
+--- @return LineConnectConfig
+local function getWaypointRoutingConfig(player)
+    local configSetting = settings.get_player_settings(player)["waypoint-mode-routing-mode"].value
+    if configSetting == ("last-mode") then
+        local routingConfig = playerLastRoutingConfig[player.index]
+        if not routingConfig then
+            routingConfig = { allowUnderground = true, preferOnGround = true }
+        end
+        return routingConfig
+    else
+        local routingConfigMapping = {
+            ["prefer-on-ground-mode"] = { allowUnderground = true, preferOnGround = true },
+            ["prefer-underground-mode"] = { allowUnderground = true, preferOnGround = false },
+            ["no-underground-mode"] = { allowUnderground = false, preferOnGround = false }
+        }
+        local routingConfig = routingConfigMapping[configSetting]
+        if not routingConfig then
+            logging.log("routing config doesn't exist: " .. tostring(configSetting), logging.E)
+        end
+        return routingConfig
+    end
+end
+
+local function tryUseWaypointMode(event)
+    local player = game.players[event.player_index]
+    if not player.is_shortcut_toggled("toggle-waypoint-mode") then
+        return
+    end
+    local routingAttribute = EntityRoutingAttribute.from(event.created_entity.name)
+    if not routingAttribute then
+        return
+    end
+    if not playerSelectedStartingPositions[event.player_index] or #playerSelectedStartingPositions[event.player_index] == 0 then
+        player.print({ "error-message.select-entity-before-waypoint-mode" })
+        return
+    end
+    setEndingTransportLine(player, event.created_entity, getWaypointRoutingConfig(player))
+    setStartingTransportLine(player, event.created_entity)
+end
+
+script.on_event("select-line-starting-point", triggerSetStartingTransportLine)
+script.on_event("build-transport-line", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = false })
+script.on_event("build-transport-line-no-underground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = false, preferOnGround = true })
+script.on_event("build-transport-line-prefer-ground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = true })
 script.on_event("toggle-waypoint-mode", toggleWaypointMode)
 script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
 script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
 script.on_event(defines.events.on_lua_shortcut, toggleWaypointMode)
+script.on_event(defines.events.on_built_entity, tryUseWaypointMode)
 
 -- notice for keymap changing from shift to control click
 script.on_configuration_changed(function(data)
