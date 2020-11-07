@@ -171,12 +171,22 @@ local function tryRemoveSelectedStartingPoint(eventWithEntity)
     end
 end
 
+local function toggleWaypointMode(event)
+    if event.prototype_name and event.prototype_name ~= "toggle-waypoint-mode" then
+        return
+    end
+    local player = game.players[event.player_index]
+    player.set_shortcut_toggled("toggle-waypoint-mode", not player.is_shortcut_toggled("toggle-waypoint-mode"))
+end
+
 script.on_event("select-line-starting-point", setStartingTransportLine)
 script.on_event("build-transport-line", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = false })
 script.on_event("build-transport-line-no-underground", buildTransportLineWithConfig { allowUnderground = false, preferOnGround = true })
 script.on_event("build-transport-line-prefer-ground", buildTransportLineWithConfig { allowUnderground = true, preferOnGround = true })
+script.on_event("toggle-waypoint-mode", toggleWaypointMode)
 script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
 script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
+script.on_event(defines.events.on_lua_shortcut, toggleWaypointMode)
 
 -- notice for keymap changing from shift to control click
 script.on_configuration_changed(function(data)
