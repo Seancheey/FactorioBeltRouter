@@ -63,7 +63,7 @@ local function setStartingTransportLine(player, selectedEntity)
         if playerSelectedStartingPositions[player.index] == nil then
             playerSelectedStartingPositions[player.index] = SelectionQueue:new(player.index)
         end
-        if playerSelectedStartingPositions[player.index]:tryRemoveDuplicate(selectedEntity) then
+        if playerSelectedStartingPositions[player.index]:tryRemoveSelectionAtPos(selectedEntity.position) then
             player.print { "info-message.remove-starting-point" }
         else
             playerSelectedStartingPositions[player.index]:push(selectedEntity)
@@ -177,7 +177,7 @@ local function tryRemoveSelectedStartingPoint(eventWithEntity)
     --- @type LuaEntity
     local entity = eventWithEntity.entity
     if playerSelectedStartingPositions[player_index] and EntityRoutingAttribute.from(entity.name) then
-        playerSelectedStartingPositions[player_index]:tryRemoveDuplicate(entity)
+        playerSelectedStartingPositions[player_index]:tryRemoveSelectionAtPos(entity.position)
     end
 end
 
