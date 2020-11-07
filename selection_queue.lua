@@ -147,7 +147,6 @@ function SelectionQueue:__updateLabelNumbers()
                 players = { game.players[self.playerIndex] },
                 text = i,
                 color = { 1, 1, 1, 0.9 },
-                target = otherSelection.entity,
                 time_to_live = renderedBoxLiveTime
             }
         end
