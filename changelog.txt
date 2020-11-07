@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.3.0
+Date: 2020.11.7
+  Features:
+    - Added a unthinkably convenient waypoint mode: First select 1+ starting points, then press TAB to toggle to waypoint mode, and just place waypoint belts as you wish.
+
+---------------------------------------------------------------------------------------------------
 Version: 1.2.1
 Date: 2020.11.6
   Optimisations:

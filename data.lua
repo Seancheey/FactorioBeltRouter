@@ -24,5 +24,20 @@ data:extend {
         name = "select-line-starting-point",
         key_sequence = "CONTROL + mouse-button-2",
         alternative_key_sequence = "CONTROL + SHIFT + mouse-button-2"
+    },
+    {
+        type = "custom-input",
+        name = "toggle-waypoint-mode",
+        key_sequence = "TAB",
+    },
+    {
+        type = "shortcut",
+        name = "toggle-waypoint-mode",
+        toggleable = true,
+        icon = {
+            filename = "__BeltRouter__/icon/waypoint-mode.png",
+            size = {283,278},
+        },
+        action = "lua"
     }
 }

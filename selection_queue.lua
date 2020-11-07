@@ -84,6 +84,12 @@ function SelectionQueue:removeIndex(index)
     end
 end
 
+function SelectionQueue:removeAll()
+    while #self >= 1 do
+        self:pop()
+    end
+end
+
 --- @param entity LuaEntity
 --- @return boolean true if success
 function SelectionQueue:tryRemoveDuplicate(entity)
