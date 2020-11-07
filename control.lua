@@ -223,7 +223,9 @@ local function tryUseWaypointMode(event)
     if not player.is_shortcut_toggled("toggle-waypoint-mode") then
         return
     end
-    local routingAttribute = EntityRoutingAttribute.from(event.created_entity.name)
+    --- @type LuaEntity
+    local entity = event.created_entity
+    local routingAttribute = EntityRoutingAttribute.from((entity.name == "entity-ghost") and entity.ghost_name or event.created_entity.name)
     if not routingAttribute then
         return
     end

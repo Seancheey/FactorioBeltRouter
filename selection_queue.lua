@@ -63,6 +63,9 @@ function SelectionQueue:pop()
         self:__clearInvalidSelections()
         --- @type EntitySelectionInfo
         local selection = self.queue:popLeft()
+        if not selection then
+            return nil
+        end
         rendering.destroy(selection.rectangleId)
         rendering.destroy(selection.textId)
         self:__updateLabelNumbers()
