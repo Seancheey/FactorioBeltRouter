@@ -11,6 +11,8 @@ local logging = require("__MiscLib__/logging")
 
 --- @class EntitySelectionInfo
 --- @field entity LuaEntity
+--- @field ghostPosition Position used for recover entity attribute when the entity ghost is replaced with real entity and lost info
+--- @field ghostName string used for recover entity attribute when the entity ghost is replaced with real entity and lost info
 --- @field rectangleId number
 --- @field textId number
 
@@ -54,7 +56,13 @@ function SelectionQueue:push(entity)
         target = entity,
         time_to_live = renderedBoxLiveTime
     }
-    self.queue:add { entity = entity, rectangleId = rectId, textId = textId }
+    self.queue:add {
+        entity = entity,
+        rectangleId = rectId,
+        textId = textId,
+        ghostName = ((entity.name == "entity-ghost") and entity.ghost_name),
+        ghostPosition = entity.position
+    }
 end
 
 --- @return LuaEntity
@@ -93,14 +101,13 @@ function SelectionQueue:removeAll()
     end
 end
 
---- @param entity LuaEntity
 --- @return boolean true if success
-function SelectionQueue:tryRemoveDuplicate(entity)
+function SelectionQueue:tryRemoveSelectionAtPos(position)
     self:__clearInvalidSelections()
     local i = 1
     while i <= #self.queue do
         local selection = self.queue[i]
-        if entity.position.x == selection.entity.position.x and entity.position.y == selection.entity.position.y then
+        if position.x == selection.entity.position.x and position.y == selection.entity.position.y then
             self:removeIndex(i)
             return true
         end
@@ -109,6 +116,8 @@ function SelectionQueue:tryRemoveDuplicate(entity)
     return false
 end
 
+-- for selection that's no longer exist, __clearInvalidSelections
+-- for selection that converts from ghost to real entity, update entity to real entity
 function SelectionQueue:__clearInvalidSelections()
     local i = 1
     while i <= #self.queue do
@@ -116,8 +125,14 @@ function SelectionQueue:__clearInvalidSelections()
         if selection.entity.valid then
             i = i + 1
         else
-            logging.log("removed one invalid selection")
-            self:removeIndex(i)
+            local newEntity = game.players[self.playerIndex].surface.find_entity(selection.ghostName, selection.ghostPosition)
+            if newEntity == nil then
+                logging.log("removed one invalid selection")
+                self:removeIndex(i)
+            else
+                self.queue[i].entity = newEntity
+                i = i + 1
+            end
         end
     end
 end
