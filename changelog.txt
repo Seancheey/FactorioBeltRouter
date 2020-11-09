@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.3.2
+Date: 2020.11.8
+  Bugfixes:
+    - Fix selection label doesn't show correctly when entity ghost is built
+  Optimisations:
+    - Change default waypoint mode keybind to Ctrl+Q
+  Features:
+    - Add setting that allows user to route with real entity in cheat mode
+
+---------------------------------------------------------------------------------------------------
 Version: 1.3.1
 Date: 2020.11.7
   Bugfixes:
