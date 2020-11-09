@@ -257,6 +257,10 @@ script.on_configuration_changed(function(data)
     local modChange = data.mod_changes["BeltRouter"]
     if modChange then
         game.print({ "info-message.update-keymap-notice" }, { 1, 0, 0 })
+        -- update underground punishment
+        for player in ipairs(game.players) do
+            settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value = 5
+        end
     end
 end)
 setupLogging()
