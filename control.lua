@@ -79,6 +79,8 @@ local function triggerSetStartingTransportLine(event)
     setStartingTransportLine(player, selectedEntity)
 end
 
+--- @param selectedEntity LuaEntity
+--- @param player LuaPlayer
 --- @param config LineConnectConfig
 local function setEndingTransportLine(player, selectedEntity, config)
     local player_index = player.index
@@ -118,7 +120,7 @@ local function setEndingTransportLine(player, selectedEntity, config)
     local function place(entity)
         entity = Copy.deep_copy(entity)
         entity.force = player.force
-        if entity.name ~= "entity-ghost" and entity.name ~= "speech-bubble" then
+        if (not player.cheat_mode or not settings.get_player_settings(player)["cheat-mode-place-real-entity"].value) and entity.name ~= "entity-ghost" and entity.name ~= "speech-bubble" then
             entity.inner_name = entity.name
             entity.name = "entity-ghost"
         end
