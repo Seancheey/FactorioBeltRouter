@@ -28,7 +28,7 @@ data:extend {
     {
         type = "custom-input",
         name = "toggle-waypoint-mode",
-        key_sequence = "TAB",
+        key_sequence = "CONTROL + Q",
     },
     {
         type = "shortcut",
