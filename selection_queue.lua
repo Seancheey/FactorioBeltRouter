@@ -53,7 +53,7 @@ function SelectionQueue:push(entity)
         players = { game.players[self.playerIndex] },
         text = #self + 1,
         color = { 1, 1, 1, 0.9 },
-        target = entity,
+        target = entity.position,
         time_to_live = renderedBoxLiveTime
     }
     self.queue:add {
@@ -145,6 +145,7 @@ function SelectionQueue:__updateLabelNumbers()
             rendering.draw_text {
                 surface = game.players[self.playerIndex].surface,
                 players = { game.players[self.playerIndex] },
+                target = otherSelection.ghostPosition,
                 text = i,
                 color = { 1, 1, 1, 0.9 },
                 time_to_live = renderedBoxLiveTime

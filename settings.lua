@@ -53,5 +53,11 @@ data:extend {
         default_value = "last-mode",
         name = "waypoint-mode-routing-mode",
         allowed_values = { "last-mode", "prefer-on-ground-mode", "prefer-underground-mode", "no-underground-mode" },
+    },
+    {
+        type = "bool-setting",
+        setting_type = "runtime-per-user",
+        name = "cheat-mode-place-real-entity",
+        default_value = true
     }
 }
