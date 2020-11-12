@@ -86,6 +86,7 @@ end
 --- @class LineConnectConfig
 --- @field allowUnderground boolean default true
 --- @field preferOnGround boolean default true
+--- @field preferLongestUnderground boolean default true
 --- @field preferGroundModeUndergroundPunishment number
 --- @field turningPunishment number
 

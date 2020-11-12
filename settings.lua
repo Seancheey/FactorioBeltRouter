@@ -59,5 +59,11 @@ data:extend {
         setting_type = "runtime-per-user",
         name = "cheat-mode-place-real-entity",
         default_value = true
+    },
+    {
+        type = "bool-setting",
+        setting_type = "runtime-per-user",
+        name = "prefer-longest-underground",
+        default_value = true
     }
 }
