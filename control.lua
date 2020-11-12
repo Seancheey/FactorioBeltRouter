@@ -68,7 +68,7 @@ local function setStartingTransportLine(player, selectedEntity)
         else
             playerSelectedStartingPositions[player.index]:push(selectedEntity)
             player.print { "info-message.push-entity" }
-            logging.log("Add entity at position " .. serpent.line(selectedEntity.position))
+            logging.log("Add entity " .. entityName .. " at position " .. serpent.line(selectedEntity.position))
         end
     end
 end
@@ -104,6 +104,8 @@ local function setEndingTransportLine(player, selectedEntity, config)
     end
     config.turningPunishment = settings.get_player_settings(player)["turning-punishment"].value
     config.preferGroundModeUndergroundPunishment = settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value
+    config.preferLongestUnderground = settings.get_player_settings(player)["prefer-longest-underground"].value
+    logging.log("preferLongestUnderground = " ..tostring(settings.get_player_settings(player)["prefer-longest-underground"].value) )
     logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
     local function canPlace(position)
