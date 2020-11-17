@@ -13,7 +13,7 @@ BeltRouter helps you path-find belt routes from starting point (shift + right cl
 * "shift + right click" on starting belt to mark as transport line's starting point
 
 * "shift + left click" on ending belt will allow path finder to put underground belts
-  ![](demo/ModeDemo_defaultMode.png)
+  ![](demo/Tutorial_clickEnd.png)
 
 * "shift + ctrl + left click" on ending belt will only allow above ground belts to exists
   ![](demo/ModeDemo_noUnderground.png)
@@ -26,8 +26,7 @@ Above key bindings can always be changed via *Settings -> Controls -> Mods -> Be
 ## Additional Notes
 
 * You can also select multiple belts at the same time:
-  ![](demo/Tutorial_batchStartSelect.png)
-  ![](demo/Tutorial_batchEndSelect.png)
+  ![](demo/demo.gif)
 
 * You can also increase path finding speed, or increase path finding max reach by going to *Mod settings -> Per player -> Belt Router*
 
