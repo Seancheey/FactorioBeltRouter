@@ -25,7 +25,7 @@ local releaseMode = require("release")
 --- @type table<string, boolean> simple table for easy toggling debugging groups
 local loggingCategories = {
     reward = false,
-    placing = true,
+    placing = false,
     transportType = false
 }
 
