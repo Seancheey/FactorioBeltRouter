@@ -15,7 +15,6 @@ local logging = require("__MiscLib__/logging")
 local EntityRoutingAttribute = require("__MiscLib__/path_find/entity_routing_attribute")
 --- @type AsyncTaskManager
 local AsyncTaskManager = require("__MiscLib__/async_task")
-
 --- @type SelectionQueue
 local SelectionQueue = require("selection_queue")
 --- @type TransportLineConnector
@@ -30,8 +29,15 @@ local loggingCategories = {
     transportType = false
 }
 
+--- async task manager for path finder
 local taskManager = AsyncTaskManager:new()
-taskManager:resolveTaskEveryNthTick(1)
+
+--- @type table<player_index, SelectionQueue>
+local playerSelectedStartingPositions = {}
+
+--- Used for waypoint mode of recording player's last routing config
+--- @type table<player_index, LineConnectConfig>
+local playerLastRoutingConfig = {}
 
 local function setupLogging()
     for category, enable in pairs(loggingCategories) do
@@ -43,12 +49,6 @@ local function setupLogging()
         logging.disableCategory(logging.V)
     end
 end
-
---- @type table<player_index, SelectionQueue>
-local playerSelectedStartingPositions = {}
---- Used for waypoint mode of recording player's last routing config
---- @type table<player_index, LineConnectConfig>
-local playerLastRoutingConfig = {}
 
 local function setStartingTransportLine(player, selectedEntity)
     if not selectedEntity then
@@ -105,7 +105,7 @@ local function setEndingTransportLine(player, selectedEntity, config)
     config.turningPunishment = settings.get_player_settings(player)["turning-punishment"].value
     config.preferGroundModeUndergroundPunishment = settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value
     config.preferLongestUnderground = settings.get_player_settings(player)["prefer-longest-underground"].value
-    logging.log("preferLongestUnderground = " ..tostring(settings.get_player_settings(player)["prefer-longest-underground"].value) )
+    logging.log("preferLongestUnderground = " .. tostring(settings.get_player_settings(player)["prefer-longest-underground"].value))
     logging.log("build line with config: " .. serpent.line(config))
     local surface = player.surface
     local function canPlace(position)
@@ -143,7 +143,8 @@ local function setEndingTransportLine(player, selectedEntity, config)
         end
     end
     local function getEntity(position)
-        for _, entity in pairs(surface.find_entities({ { position.x, position.y }, { position.x, position.y } })) do
+        -- radius 0.5 so that we can capture 2-block wide entities like splitter
+        for _, entity in pairs(surface.find_entities_filtered { position = position, radius = 0.5 }) do
             -- don't want player/other vehicles to be included
             local real_name = (entity.name == "entity-ghost") and entity.ghost_name or entity.name
             if EntityRoutingAttribute.from(real_name) then
@@ -244,30 +245,34 @@ local function tryUseWaypointMode(event)
     setStartingTransportLine(player, event.created_entity)
 end
 
-script.on_event("select-line-starting-point", triggerSetStartingTransportLine)
-script.on_event("build-transport-line", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = false })
-script.on_event("build-transport-line-no-underground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = false, preferOnGround = true })
-script.on_event("build-transport-line-prefer-ground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = true })
-script.on_event("toggle-waypoint-mode", toggleWaypointMode)
-script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
-script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
-script.on_event(defines.events.on_lua_shortcut, toggleWaypointMode)
-script.on_event(defines.events.on_built_entity, tryUseWaypointMode)
+local function main()
+    script.on_event("select-line-starting-point", triggerSetStartingTransportLine)
+    script.on_event("build-transport-line", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = false })
+    script.on_event("build-transport-line-no-underground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = false, preferOnGround = true })
+    script.on_event("build-transport-line-prefer-ground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = true })
+    script.on_event("toggle-waypoint-mode", toggleWaypointMode)
+    script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
+    script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
+    script.on_event(defines.events.on_lua_shortcut, toggleWaypointMode)
+    script.on_event(defines.events.on_built_entity, tryUseWaypointMode)
 
--- notice for keymap changing from shift to control click
-script.on_configuration_changed(function(data)
-    local modChange = data.mod_changes["BeltRouter"]
-    if modChange then
-        game.print({ "info-message.update-keymap-notice" }, { 1, 0, 0 })
-        -- update underground punishment
-        for player in ipairs(game.players) do
-            settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value = 5
+    -- notice for keymap changing from shift to control click
+    script.on_configuration_changed(function(data)
+        local modChange = data.mod_changes["BeltRouter"]
+        if modChange then
+            game.print({ "info-message.update-keymap-notice" }, { 1, 0, 0 })
+            -- update underground punishment
+            for player in ipairs(game.players) do
+                settings.get_player_settings(player)["prefer-ground-mode-underground-punishment"].value = 5
+            end
         end
+    end)
+    taskManager:resolveTaskEveryNthTick(1)
+    setupLogging()
+    -- Used for debugging purpose only with gvv mod
+    if script.active_mods["gvv"] then
+        require("__gvv__.gvv")()
     end
-end)
-setupLogging()
-
--- Used for debugging purpose only with gvv mod
-if script.active_mods["gvv"] then
-    require("__gvv__.gvv")()
 end
+
+main()
