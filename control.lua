@@ -245,12 +245,18 @@ local function tryUseWaypointMode(event)
     setStartingTransportLine(player, event.created_entity)
 end
 
+local function terminatePathFinding(event)
+    taskManager:removeAllTasks()
+    game.players[event.player_index].print { "info-message.terminate-path-finding" }
+end
+
 local function main()
     script.on_event("select-line-starting-point", triggerSetStartingTransportLine)
     script.on_event("build-transport-line", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = false })
     script.on_event("build-transport-line-no-underground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = false, preferOnGround = true })
     script.on_event("build-transport-line-prefer-ground", triggerSetEndingTransportLineWithConfigHelper { allowUnderground = true, preferOnGround = true })
     script.on_event("toggle-waypoint-mode", toggleWaypointMode)
+    script.on_event("terminate-path-finding", terminatePathFinding)
     script.on_event(defines.events.on_player_mined_entity, tryRemoveSelectedStartingPoint)
     script.on_event(defines.events.on_marked_for_deconstruction, tryRemoveSelectedStartingPoint)
     script.on_event(defines.events.on_lua_shortcut, toggleWaypointMode)

@@ -31,6 +31,11 @@ data:extend {
         key_sequence = "CONTROL + Q",
     },
     {
+        type = "custom-input",
+        name = "terminate-path-finding",
+        key_sequence = "CONTROL + SHIFT + T",
+    },
+    {
         type = "shortcut",
         name = "toggle-waypoint-mode",
         toggleable = true,
