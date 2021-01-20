@@ -6,6 +6,6 @@
     "contact": "adls371@outlook.com",
     "homepage": "https://github.com/Seancheey/FactorioBeltRouter",
     "factorio_version": "1.1",
-    "dependencies": ["base", "MiscLib>=0.9.1"],
+    "dependencies": ["base", "MiscLib>=0.9.2"],
     "description": "This mod allows you to route belts and pipes automatically: \n  1. Put the starting belt and ending belt on ground first, \n  2. then select the starting belt with control+right-click and \n  3. select a ending belt with control+left-click.\n  Boom, belt ghosts are created!\n  (hint: you can also disable underground belt by shift+ctrl+left-click at the ending belt)"
 }
